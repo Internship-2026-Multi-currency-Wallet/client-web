@@ -1,0 +1,24 @@
+# Deploy: a push to main (→ staging) or client/<c>-uat (→ <c>-uat) builds the app with that environment's
+# VITE_* values and uploads it to Cloudflare Pages (project client-web-<env>, https://<env>.wallet.shatori.com).
+# Logic: ops/.github/workflows/deploy-pages.yml
+name: Deploy
+
+on:
+  push:
+    branches: [main, client/kvitka-uat, client/wisla-uat]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: Internship-2026-Multi-currency-Wallet/ops/.github/workflows/deploy-pages.yml@main
+    with:
+      host-suffix: ''
+      staging-dev-user: '1:wallet'
+    secrets: inherit
