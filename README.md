@@ -77,6 +77,22 @@ Each value can be overridden by its own `VITE_*` variable and has a safe default
 
 Vite inlines these values at **build time**; the Docker image takes them as build args.
 
+### Deployed environments (Cloudflare Pages)
+
+Every push to `main` / `client/<c>-uat` builds the app in GitHub Actions with that environment's values and uploads
+it to Cloudflare Pages (`.github/workflows/deploy.yml` → `ops/.github/workflows/deploy-pages.yml`). No manual deploys.
+
+| Environment  | Branch              | URL                                     | Build values                                                         |
+| ------------ | ------------------- | --------------------------------------- | -------------------------------------------------------------------- |
+| `staging`    | `main`              | <https://staging.wallet.shatori.com>    | `VITE_APP_ENV=staging`, `VITE_CLIENT=demo`, `VITE_DEV_USER=1:wallet` |
+| `kvitka-uat` | `client/kvitka-uat` | <https://kvitka-uat.wallet.shatori.com> | `VITE_APP_ENV=kvitka-uat`, `VITE_CLIENT=kvitka`, no dev user         |
+| `wisla-uat`  | `client/wisla-uat`  | <https://wisla-uat.wallet.shatori.com>  | `VITE_APP_ENV=wisla-uat`, `VITE_CLIENT=wisla`, no dev user           |
+
+`VITE_APP_ENV` selects the backend URLs from `ENVIRONMENTS` in `src/config-env.ts`:
+`https://<env>-wallet-core.wallet.shatori.com/graphql`, `https://<env>-rates.wallet.shatori.com/graphql`
+(subscriptions `wss://<env>-rates.wallet.shatori.com/graphql`).
+The Docker image (nginx) is for the local stack only.
+
 ## GraphQL: contract, types and mocks
 
 1. **Contract.** Each backend commits its `schema.graphql`. `npm run schema:pull` downloads them from the `main`
