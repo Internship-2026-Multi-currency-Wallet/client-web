@@ -3,14 +3,14 @@
  * and of the files in `public/brand/`; shared code must take brand values only from here.
  */
 export const brand = {
-  siteName: 'Demo Wallet',
+  siteName: 'Wisła Transfer',
   palette: {
-    primary: '#4F46E5',
-    secondary: '#0EA5E9',
-    background: '#F8FAFC',
-    text: '#1E1B4B',
+    primary: '#0F766E',
+    secondary: '#E11D48',
+    background: '#F0FDFA',
+    text: '#134E4A',
     success: '#16A34A',
-    error: '#DC2626',
+    error: '#B91C1C',
   },
   fontFamily: 'Inter, "Segoe UI", Roboto, Arial, sans-serif',
   logoUrl: '/brand/logo.svg',
