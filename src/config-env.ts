@@ -31,10 +31,10 @@ type EnvValues = Pick<
 
 const deployed = (env: string, client: string): EnvValues => ({
   client,
-  // Placeholder host names; confirmed when the environments are deployed.
-  walletCoreUrl: `https://wallet-core.${env}.wallet.shatori.com/graphql`,
-  ratesServiceUrl: `https://rates.${env}.wallet.shatori.com/graphql`,
-  ratesServiceWsUrl: `wss://rates.${env}.wallet.shatori.com/graphql`,
+  // Backends of a deployed environment: https://<env>-<service>.wallet.shatori.com
+  walletCoreUrl: `https://${env}-wallet-core.wallet.shatori.com/graphql`,
+  ratesServiceUrl: `https://${env}-rates.wallet.shatori.com/graphql`,
+  ratesServiceWsUrl: `wss://${env}-rates.wallet.shatori.com/graphql`,
 });
 
 /** Per-environment values. */
