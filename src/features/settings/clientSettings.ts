@@ -28,8 +28,6 @@ const validators: { [K in ClientSettingKey]: (value: unknown) => ClientSettings[
 
 const knownKeys = Object.keys(validators) as ClientSettingKey[];
 
-const isKnownKey = (key: string): key is ClientSettingKey => key in validators;
-
 export const INVALID_SETTINGS_CODE = 'INVALID_SETTINGS';
 
 export class InvalidSettingsError extends Error {
@@ -40,34 +38,29 @@ export class InvalidSettingsError extends Error {
   }
 }
 
+type PublicSettingsList = PublicSettingsQuery['publicSettings'];
+
+type KeyCheck = { value: unknown } | { problem: string };
+
+/** What is wrong with this known key in the list, if anything? Otherwise its validated value. */
+function checkKey(list: PublicSettingsList, key: ClientSettingKey): KeyCheck {
+  const entries = list.filter((setting) => setting.key === key);
+  if (entries.length === 0) return { problem: `${key} is missing` };
+  if (entries.length > 1) return { problem: `${key} is duplicated` };
+  const value = validators[key](entries[0].value);
+  return value === undefined ? { problem: `${key} has an invalid value` } : { value };
+}
+
 /**
  * `publicSettings` list → typed object. Unknown extra keys are ignored (forward compatible);
- * duplicated, missing or malformed known keys throw `InvalidSettingsError`.
+ * duplicated, missing or malformed known keys throw `InvalidSettingsError` (all problems at once).
  */
-export function parsePublicSettings(list: PublicSettingsQuery['publicSettings']): ClientSettings {
-  const raw = new Map<string, unknown>();
-  const duplicates = new Set<string>();
-  for (const { key, value } of list) {
-    if (raw.has(key) && isKnownKey(key)) duplicates.add(key);
-    raw.set(key, value);
-  }
-  const problems: string[] = [];
-  const result: Partial<Record<ClientSettingKey, unknown>> = {};
-  for (const key of knownKeys) {
-    if (duplicates.has(key)) {
-      problems.push(`${key} is duplicated`);
-      continue;
-    }
-    if (!raw.has(key)) {
-      problems.push(`${key} is missing`);
-      continue;
-    }
-    const value = validators[key](raw.get(key));
-    if (value === undefined) problems.push(`${key} has an invalid value`);
-    else result[key] = value;
-  }
+export function parsePublicSettings(list: PublicSettingsList): ClientSettings {
+  const checks = knownKeys.map((key) => [key, checkKey(list, key)] as const);
+  const problems = checks.flatMap(([, check]) => ('problem' in check ? [check.problem] : []));
   if (problems.length > 0) throw new InvalidSettingsError(problems);
-  return result as unknown as ClientSettings; // every known key was validated above
+  const values = checks.map(([key, check]) => [key, 'value' in check ? check.value : undefined]);
+  return Object.fromEntries(values) as unknown as ClientSettings; // every known key was validated
 }
 
 export function toInvalidSettingsRequestError(error: InvalidSettingsError): GraphQLRequestError {
