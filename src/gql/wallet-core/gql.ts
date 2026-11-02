@@ -14,10 +14,12 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+    "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": typeof types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": typeof types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": typeof types.MeDocument,
 };
 const documents: Documents = {
+    "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": types.MeDocument,
 };
@@ -36,6 +38,10 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown;
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n"): (typeof documents)["\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
