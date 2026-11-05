@@ -93,6 +93,50 @@ it to Cloudflare Pages (`.github/workflows/deploy.yml` → `ops/.github/workflow
 (subscriptions `wss://<env>-rates.wallet.shatori.com/graphql`).
 The Docker image (nginx) is for the local stack only.
 
+## Authentication
+
+Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `RequireAuth`. Contract: `wallet-core`
+`register` (creates the account only), `login`, `refreshSession`, `logout`.
+
+- The **access token** (15 min) and the user are kept in `localStorage` (`src/graphql/session.ts`, team decision for
+  the MVP). The **refresh token** is an HttpOnly cookie that wallet-core sets; requests to wallet-core use
+  `credentials: 'include'`. Redux (`features/auth/authSlice.ts`) only mirrors the user.
+- `request()` in `src/graphql/client.ts` adds `Authorization: Bearer …`. On `UNAUTHENTICATED` it refreshes the session
+  once (concurrent requests share one refresh), repeats the request once, and clears the session if the refresh
+  session is over. The dev user (`VITE_DEV_USER`) is only used while nobody is signed in.
+- Session lifecycle (`src/graphql/session.ts`): every login/logout/other-user change starts a new _generation_; a
+  refresh, login or request that started under an older generation is dropped when it finishes, so a late result
+  never revives a logged-out session or leaks one user's data into the next. A token refresh of the same user keeps
+  the cache; another user (also from another tab) clears private cached data (`features/auth/privateCache.ts`;
+  list new _public_ endpoints there). After a reload an expired token is renewed before any protected page shows
+  (`RequireAuth`); a temporary server failure offers Retry instead of logging out.
+- Cross-tab safety: generation and session are ONE record in `localStorage` (no torn snapshot), and every write to
+  it (login, refresh, invalid-session cleanup, logout) is serialized across tabs by one Web Lock
+  (`navigator.locks`; never held during a network request). Logout signs the current tab out immediately (in memory),
+  then writes under the lock; a refresh queued earlier is rejected by its older generation. If the lock cannot be
+  taken, nothing stale is written; a logout keeps asking for the same lock (the tab stays signed out meanwhile). **Without Web Locks** (old
+  browsers, insecure origins) a console warning says so: in-tab guarantees stay, but cross-tab read-check-write is
+  best-effort only.
+- Refresh, login, logout and the refresh-token cookie: wallet-core rotates the cookie on EVERY refresh (the old token
+  dies at once) and all tabs share it. So every request that reads or changes it (refresh, login, logout) runs inside a
+  second Web Lock, `wallet.auth-cookie` (`src/graphql/cookie-lock.ts`), held across the HTTP request AND the session
+  update that follows; order is always cookie → session. After waiting, an operation first checks again that it is
+  still relevant: a refresh reuses a session another tab already renewed; a login whose session was replaced meanwhile
+  is not sent; a logout is sent only while it is still the latest event of the session (its identity is the generation
+  `clearSession()` returns), so an old logout can never delete the cookie of a newer login. A refresh never changes who
+  is signed in: an answer for another user ends the session instead. Requests are cancelled after 15 s (the lock is
+  never given up while a request may still change the cookie); a timeout or network error keeps the session and is not
+  retried. **Without Web Locks** a refresh fails with a clear error instead of rotating uncoordinated, while login and
+  logout still run, uncoordinated, with a console warning (so the cross-tab cookie races are possible there). _This
+  browser-support policy is pending mentor approval._
+- Logout clears the local session first and then waits at most 5 s for the server; if the server does not confirm,
+  the login page says so (the refresh cookie may live on until it expires).
+- Mock mode prints a console warning when a request to a backend has no handler (instead of failing silently with
+  `ERR_CONNECTION_REFUSED`). If you see that error, reload normally (not Ctrl+Shift+R) and check DevTools →
+  Application → Service Workers → "Bypass for network" is off.
+- With `VITE_USE_MOCKS=true` the mock user is `demo@example.com` / `Demo1234!`; accounts you register stay until the
+  tab is closed (use fake passwords). 5 wrong passwords lock the mock account for 15 minutes.
+
 ## GraphQL: contract, types and mocks
 
 1. **Contract.** Each backend commits its `schema.graphql`. `npm run schema:pull` downloads them from the `main`

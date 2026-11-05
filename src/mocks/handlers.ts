@@ -1,6 +1,7 @@
 import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
+import { authHandlers, userIdFromBearer } from './auth-handlers';
 import type { MeQuery, WalletCoreHealthQuery } from '../gql/wallet-core/graphql';
 import type { ServerTimeSubscription } from '../gql/rates-service/graphql';
 
@@ -35,7 +36,15 @@ export const handlers = [
     }),
   ),
 
+  ...authHandlers,
+
   walletCore.query<MeQuery>('Me', ({ request }) => {
+    const bearerId = userIdFromBearer(request.headers.get('authorization'));
+    if (bearerId) {
+      return HttpResponse.json({
+        data: { me: { id: bearerId, permissions: ['wallet'], strategy: 'jwt' } },
+      });
+    }
     const user = devUserFrom(request);
     if (!user) {
       return HttpResponse.json({

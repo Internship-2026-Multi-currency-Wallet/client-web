@@ -10,7 +10,12 @@ const service = (name: string) => ({
   documents: [`src/**/*.${name}.ts`],
   preset: 'client' as const,
   presetConfig: { fragmentMasking: false },
-  config: { useTypeImports: true, enumsAsTypes: true },
+  config: {
+    useTypeImports: true,
+    enumsAsTypes: true,
+    // Never `any`: JSON values must be validated before use (see features/settings).
+    scalars: { JSON: 'unknown', DateTime: 'string' },
+  },
 });
 
 const config: CodegenConfig = {

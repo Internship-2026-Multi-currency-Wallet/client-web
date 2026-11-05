@@ -2,6 +2,23 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+"""
+Result of login and refreshSession. The refresh token is not here: it is set as an httpOnly cookie.
+"""
+type AuthPayload {
+  """Short-lived JWT. Send it as "Authorization: Bearer <token>"."""
+  accessToken: String!
+
+  """When the access token expires. Call refreshSession before that."""
+  accessTokenExpiresAt: DateTime!
+  user: User!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 """Whether a dependency (database, Redis) answers."""
 enum DependencyStatus {
   DOWN
@@ -10,6 +27,9 @@ enum DependencyStatus {
 
 """Service health and identity."""
 type Health {
+  """Environment (APP_ENV): local, staging, kvitka-uat, wisla-uat."""
+  appEnv: String!
+
   """Client this deployment serves (CLIENT env): demo, kvitka, wisla."""
   client: String!
   db: DependencyStatus!
@@ -20,6 +40,16 @@ type Health {
 
   """Service version (package.json or APP_VERSION)."""
   version: String!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
+
+input LoginInput {
+  email: String!
+  password: String!
 }
 
 """The authenticated caller."""
@@ -33,10 +63,141 @@ type Me {
   strategy: String!
 }
 
+type Mutation {
+  """
+  Logs in with email and password (sets the refresh token cookie). Errors: INVALID_CREDENTIALS, ACCOUNT_LOCKED (extensions.lockedUntil).
+  """
+  login(input: LoginInput!): AuthPayload!
+
+  """
+  Ends the session of the refresh token cookie and clears the cookie. Returns true even when there was no session.
+  """
+  logout: Boolean!
+
+  """
+  Issues a new access token using the refresh token cookie; no password needed. Errors: INVALID_REFRESH_TOKEN.
+  """
+  refreshSession: AuthPayload!
+
+  """
+  Creates an account. Does not log in: call login afterwards. Errors: BAD_USER_INPUT, EMAIL_ALREADY_REGISTERED.
+  """
+  register(input: RegisterInput!): User!
+
+  """
+  Removes the override so the default applies again; recorded in history. Requires bo:settings:modify. Errors: UNAUTHENTICATED, FORBIDDEN, UNKNOWN_KEY.
+  """
+  resetSetting(key: String!): Setting!
+
+  """
+  Sets an override. Requires bo:settings:modify. Errors: UNAUTHENTICATED, FORBIDDEN, UNKNOWN_KEY, INVALID_VALUE.
+  """
+  updateSetting(key: String!, value: JSON!): Setting!
+}
+
+"""A setting the client apps may read (public flag set in the catalog)."""
+type PublicSetting {
+  """Dotted key, e.g. "auth.googleLogin"."""
+  key: String!
+
+  """Effective value, e.g. true or ["wallet"]."""
+  value: JSON!
+}
+
 type Query {
   """Service health. Does not require authentication."""
   health: Health!
 
   """The current user. Requires authentication."""
   me: Me!
+
+  """
+  Effective public settings of this client. Does not require authentication.
+  """
+  publicSettings: [PublicSetting!]!
+
+  """
+  Change history, newest first, optionally for one key. Cursor: `before` returns only changes strictly older than this time. `limit` is at most 200. Requires bo:settings. Errors: UNAUTHENTICATED, FORBIDDEN, UNKNOWN_KEY, INVALID_VALUE.
+  """
+  settingHistory(before: DateTime, key: String, limit: Int! = 50): [SettingChange!]!
+
+  """
+  All settings with defaults and overrides. Requires bo:settings. Errors: UNAUTHENTICATED, FORBIDDEN.
+  """
+  staffSettings: [Setting!]!
+}
+
+input RegisterInput {
+  """
+  Must be a valid email address. Case-insensitive, must not be registered yet.
+  """
+  email: String!
+
+  """
+  At least 8 characters, with at least one digit, one uppercase letter and one special character (not a letter or digit).
+  """
+  password: String!
+
+  """Optional phone number in international format, e.g. "+380501234567"."""
+  phone: String
+}
+
+"""A setting with its catalog metadata, for staff."""
+type Setting {
+  """Allowed values; only for type ENUM."""
+  allowedValues: [String!]
+
+  """Platform default from the catalog."""
+  defaultValue: JSON!
+
+  """Dotted key, e.g. "auth.googleLogin"."""
+  key: String!
+
+  """Whether the client has an override for this setting."""
+  overridden: Boolean!
+
+  """Whether client apps receive this setting (publicSettings)."""
+  public: Boolean!
+  type: SettingType!
+
+  """Effective value (override if any, else default)."""
+  value: JSON!
+}
+
+"""One recorded change of a setting (an update or a reset)."""
+type SettingChange {
+  """When the change was made."""
+  changedAt: DateTime!
+
+  """Id of the staff user who made the change."""
+  changedBy: ID!
+
+  """Dotted key, e.g. "auth.googleLogin"."""
+  key: String!
+
+  """Value after the change (the default after a reset)."""
+  newValue: JSON!
+
+  """Value before the change (the default if there was no override)."""
+  oldValue: JSON!
+}
+
+"""
+Value type of a setting; tells the client what shape the JSON value has.
+"""
+enum SettingType {
+  BOOLEAN
+  ENUM
+  STRING_LIST
+}
+
+"""A registered wallet user."""
+type User {
+  email: String!
+
+  """User id (UUID)."""
+  id: ID!
+
+  """Phone number, if the user gave one."""
+  phone: String
 }

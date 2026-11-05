@@ -3,9 +3,12 @@ import { graphql } from 'msw/graphql';
 import { HttpResponse } from 'msw';
 import { config } from '../config-env';
 import { server } from '../mocks/server';
+import { signInForTest } from '../test/auth';
 import { renderApp } from '../test/render';
 
 describe('HomePage', () => {
+  beforeEach(() => signInForTest());
+
   it('shows wallet-core health, the dev user and the live server time (mocks)', async () => {
     renderApp('/');
     expect(await screen.findByTestId('health')).toHaveTextContent(
