@@ -213,7 +213,7 @@ describe('logout does not wait for the server', () => {
     server.use(walletCore.mutation('Logout', () => delay('infinite')));
     const { store, router } = renderHarness(80);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log out now' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Log out now' }));
 
     // Right away: no waiting for the server.
     expect(loadSession()).toBeNull();
@@ -229,7 +229,7 @@ describe('logout does not wait for the server', () => {
     signInForTest();
     const { router } = renderHarness(500);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log out now' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Log out now' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     await delay(100);
 
@@ -242,7 +242,7 @@ describe('logout does not wait for the server', () => {
     server.use(walletCore.mutation('Logout', () => HttpResponse.error()));
     renderHarness(500);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log out now' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Log out now' }));
 
     expect(await screen.findByText(/did not confirm/i)).toBeInTheDocument();
     expect(loadSession()).toBeNull();
@@ -350,7 +350,7 @@ describe('delayed logout response vs. a new login', () => {
       </AppProviders>,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log out now' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Log out now' }));
     expect(loadSession()).toBeNull();
 
     // The user logs in again right away, while the logout request is still unanswered.

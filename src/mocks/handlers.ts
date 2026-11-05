@@ -2,7 +2,11 @@ import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
 import { authHandlers, userIdFromBearer } from './auth-handlers';
-import type { MeQuery, WalletCoreHealthQuery } from '../gql/wallet-core/graphql';
+import type {
+  MeQuery,
+  PublicSettingsQuery,
+  WalletCoreHealthQuery,
+} from '../gql/wallet-core/graphql';
 import type { ServerTimeSubscription } from '../gql/rates-service/graphql';
 
 /**
@@ -37,6 +41,19 @@ export const handlers = [
   ),
 
   ...authHandlers,
+
+  // Values of the agreed settings catalog (not a live backend response).
+  walletCore.query<PublicSettingsQuery>('PublicSettings', () =>
+    HttpResponse.json({
+      data: {
+        publicSettings: [
+          { key: 'auth.googleLogin', value: true },
+          { key: 'auth.phoneRequiredAt', value: 'never' },
+          { key: 'products.enabled', value: ['wallet'] },
+        ],
+      },
+    }),
+  ),
 
   walletCore.query<MeQuery>('Me', ({ request }) => {
     const bearerId = userIdFromBearer(request.headers.get('authorization'));

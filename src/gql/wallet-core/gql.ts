@@ -17,6 +17,7 @@ type Documents = {
     "\n  mutation Register($input: RegisterInput!) {\n    register(input: $input) {\n      id\n      email\n      phone\n    }\n  }\n": typeof types.RegisterDocument,
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": typeof types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
+    "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": typeof types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": typeof types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": typeof types.MeDocument,
     "\n  mutation RefreshSession {\n    refreshSession {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": typeof types.RefreshSessionDocument,
@@ -25,6 +26,7 @@ const documents: Documents = {
     "\n  mutation Register($input: RegisterInput!) {\n    register(input: $input) {\n      id\n      email\n      phone\n    }\n  }\n": types.RegisterDocument,
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
+    "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": types.MeDocument,
     "\n  mutation RefreshSession {\n    refreshSession {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": types.RefreshSessionDocument,
@@ -56,6 +58,10 @@ export function graphql(source: "\n  mutation Login($input: LoginInput!) {\n    
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation Logout {\n    logout\n  }\n"): (typeof documents)["\n  mutation Logout {\n    logout\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n"): (typeof documents)["\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
