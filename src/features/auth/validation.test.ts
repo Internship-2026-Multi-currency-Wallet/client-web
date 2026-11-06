@@ -28,7 +28,12 @@ describe('validateEmail', () => {
     'om@,.l',
     'a@b..co',
     'a@-b.co',
-    'a@b-.co',
+    'a..b@c.co',
+    '.a@c.co',
+    'a.@c.co',
+    'ü@example.com',
+    'user@пошта.укр', // IDN: wallet-core (zod) refuses it
+    'user@example.xn--p1ai', // a punycode TLD has digits and hyphens: refused too
     'a@b.c',
     'a@b.c_o',
     'a@b.co.',
@@ -41,7 +46,9 @@ describe('validateEmail', () => {
     'first.last+tag@sub.example.co',
     '  user@example.com  ',
     'a@my-host.example.org',
-    'user@пошта.укр',
+    'user@xn--e1afmkfd.com', // punycode label under an ASCII TLD
+    '\u212A@example.com', // lower-cases to a plain "k", like on the backend
+    'a@b-.co', // zod allows a trailing hyphen in a label
   ])('accepts %j', (email) => {
     expect(validateEmail(email)).toBeUndefined();
   });

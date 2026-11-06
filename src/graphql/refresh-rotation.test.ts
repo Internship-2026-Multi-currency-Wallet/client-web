@@ -62,8 +62,8 @@ const locks = () => navigator.locks as unknown as FakeLockManager;
 const parkedOnCookieLock = () => locks().pending(AUTH_COOKIE_LOCK) > 0;
 
 /**
- * Waits until `settled()` is true OR a request is parked on the auth-cookie lock. After the fix the second tab waits
- * for the lock instead of sending, so "it has done everything it can" must not require its answer.
+ * Waits until `settled()` is true OR a request is parked on the auth-cookie lock. The second tab waits for the lock
+ * instead of sending, so "it has done everything it can" must not require its answer.
  */
 function waitUntilSettledOrParked(settled: () => boolean) {
   return vi.waitFor(() => {
@@ -195,7 +195,7 @@ describe('F1: two tabs refresh with the same rotating refresh token', () => {
     const refreshA = tabA.refreshSession();
     await transport.consumed(1); // A rotated R1 -> R2; the cookie in the browser is still R1
     const refreshB = tabB.refreshSession();
-    // B has either sent R1 (it will be rejected) or is waiting for A (after the fix): both are "as far as it gets".
+    // B has either sent R1 (it will be rejected) or is waiting for A (queued on the lock): both are "as far as it gets".
     await vi.waitFor(() => {
       if (transport.refreshCalls < 2 && !parkedOnCookieLock()) throw new Error('not yet');
     });

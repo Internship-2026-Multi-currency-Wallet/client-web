@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { AppDispatch, RootState } from '../../app/store';
 import { refreshSession } from '../../graphql/client';
+import { AuthCookieLockError } from '../../graphql/cookie-lock';
 import {
   isAccessTokenExpired,
   loadSession,
@@ -12,8 +13,11 @@ import {
  * - `restoring`: a stored session has an expired access token; the refresh cookie decides. Protected UI waits.
  * - `authenticated` / `anonymous`: settled.
  * - `unavailable`: restoring failed for a transient reason (network, 5xx). The stored session is kept; Retry.
+ * - `unsupported`: the browser has no Web Locks, so the rotating refresh cookie cannot be used safely. Retrying cannot
+ *   help; only a new login (which works without locks) gets a usable token. The stored session is left untouched.
  */
-export type AuthStatus = 'restoring' | 'authenticated' | 'anonymous' | 'unavailable';
+export type AuthStatus =
+  'restoring' | 'authenticated' | 'anonymous' | 'unavailable' | 'unsupported';
 
 export interface AuthState {
   status: AuthStatus;
@@ -47,10 +51,14 @@ const authSlice = createSlice({
     restoreUnavailable(state) {
       if (state.status === 'restoring') state.status = 'unavailable';
     },
+    restoreUnsupported(state) {
+      if (state.status === 'restoring') state.status = 'unsupported';
+    },
   },
 });
 
-export const { sessionChanged, restoreStarted, restoreUnavailable } = authSlice.actions;
+export const { sessionChanged, restoreStarted, restoreUnavailable, restoreUnsupported } =
+  authSlice.actions;
 export const authReducer = authSlice.reducer;
 export const selectUser = (state: RootState) => state.auth.user;
 export const selectAuthStatus = (state: RootState) => state.auth.status;
@@ -68,11 +76,13 @@ export const restoreSession = () => async (dispatch: AppDispatch, getState: () =
     // storage event came in.
     const session = loadSession();
     if (session && getState().auth.status === 'restoring') dispatch(sessionChanged(session.user));
-  } catch {
+  } catch (error) {
     // Not "invalid": do not clear anything. Unless the session changed meanwhile, which already settled the state
     // (the generation check) or something newer settled it without a new generation (the status check).
     if (generation === sessionGeneration() && getState().auth.status === 'restoring') {
-      dispatch(restoreUnavailable());
+      // A missing Web Locks API never goes away, so it must not be offered as a retry like a network failure.
+      const permanent = error instanceof AuthCookieLockError && error.reason === 'unavailable';
+      dispatch(permanent ? restoreUnsupported() : restoreUnavailable());
     }
   }
 };

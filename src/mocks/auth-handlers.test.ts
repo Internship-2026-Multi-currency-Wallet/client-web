@@ -10,7 +10,7 @@ const register = (password: string) =>
 
 const passwordOfLength = (n: number) => 'Aa1!' + 'a'.repeat(n - 4);
 
-describe('mock Register: password length (backend PR #8: 8-128)', () => {
+describe('mock Register: password length (backend: 8-128, separate messages)', () => {
   it('accepts 128 characters', async () => {
     await expect(register(passwordOfLength(128))).resolves.toMatchObject({
       register: { email: 'mock-password@example.com' },
@@ -21,7 +21,10 @@ describe('mock Register: password length (backend PR #8: 8-128)', () => {
     const error = await register(passwordOfLength(length)).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ClientError);
     expect((error as ClientError).response.errors?.[0]).toMatchObject({
-      message: 'Password must be between 8 and 128 characters',
+      message:
+        length < 8
+          ? 'Password must be at least 8 characters'
+          : 'Password must be at most 128 characters',
       extensions: { code: 'BAD_USER_INPUT', field: 'password' },
     });
   });

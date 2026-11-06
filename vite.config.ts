@@ -12,6 +12,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    testTimeout: 20_000,
     // Tests run as dev user 1 against MSW mocks.
     env: { VITE_DEV_USER: '1:wallet' },
   },

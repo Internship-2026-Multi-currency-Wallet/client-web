@@ -34,19 +34,28 @@ export const PASSWORD_HINT =
 export const PHONE_REQUIRED = 'Enter your phone number';
 export const PHONE_HINT = 'Use international format, e.g. +380501234567';
 
-// Deliberately simple, not RFC 5322. Local part: anything without spaces or "@". Domain: dot-separated labels of
-// letters/digits/hyphens (no leading/trailing hyphen, no empty label) and a TLD of at least 2 characters.
-// Whether the mailbox exists or the TLD is real is the server's job.
-const LABEL = '[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]*[\\p{L}\\p{N}])?';
-const TLD = '[\\p{L}\\p{N}][\\p{L}\\p{N}-]*[\\p{L}\\p{N}]';
-const EMAIL_PATTERN = new RegExp(`^[^\\s@]+@(?:${LABEL}\\.)+${TLD}$`, 'u');
+/**
+ * The email rule of wallet-core (`z.email()` of zod 4, which `register.schema.ts` uses), the same regex as zod's, only without escapes that ESLint calls useless: ASCII
+ * only, no leading, trailing or double dots in the local part, a domain of ASCII labels and a letters-only TLD of at
+ * least 2 characters. So `ü@example.com` and `user@пошта.укр` are NOT accepted (nor punycode TLDs like `.xn--p1ai`; a punycode label under an ASCII TLD is). Whether the
+ * mailbox exists is the server's job. `validation.parity.test.ts` checks this regex against zod itself.
+ */
+export const EMAIL_PATTERN =
+  /^(?:[A-Za-z0-9_'+-]+\.)*[A-Za-z0-9_'+-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/;
+
+/** E.164: `+`, then 7-15 digits, the first not 0 (same as the backend). */
+export const PHONE_PATTERN = /^\+[1-9]\d{6,14}$/;
+
+/** What the backend stores and compares: trimmed and lower-cased (so `\u212A` "Kelvin" becomes a plain `k`). */
+export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
 export function validateEmail(email: string): string | undefined {
-  const value = email.trim();
+  const value = normalizeEmail(email);
   if (value === '') return 'Enter your email';
+  // Same order as the backend (format first), so the same input gets the same verdict.
+  if (!EMAIL_PATTERN.test(value)) return 'Enter a valid email address';
   if (value.length > EMAIL_MAX_LENGTH)
     return `Email must be at most ${EMAIL_MAX_LENGTH} characters`;
-  if (!EMAIL_PATTERN.test(value)) return 'Enter a valid email address';
   return undefined;
 }
 
@@ -77,7 +86,7 @@ export function validateNewPassword(password: string): string | undefined {
 export function validatePhone(phone: string, required = false): string | undefined {
   const value = phone.trim();
   if (value === '') return required ? PHONE_REQUIRED : undefined;
-  return /^\+[1-9]\d{6,14}$/.test(value) ? undefined : PHONE_HINT;
+  return PHONE_PATTERN.test(value) ? undefined : PHONE_HINT;
 }
 
 /** Empty object = valid. The phone is optional unless `phoneRequired`. */

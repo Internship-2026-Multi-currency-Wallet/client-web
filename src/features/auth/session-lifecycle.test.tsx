@@ -5,7 +5,7 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { AppProviders } from '../../app/AppProviders';
 import { routes } from '../../app/routes';
 import { createStore } from '../../app/store';
-import { DEMO_USER } from '../../mocks/auth-handlers';
+import { clearMockRefreshCookie, DEMO_USER } from '../../mocks/auth-handlers';
 import { refreshSession } from '../../graphql/client';
 import { clearSession, loadSession, saveSession } from '../../graphql/session';
 import { server } from '../../mocks/server';
@@ -172,13 +172,15 @@ describe('private cache isolation', () => {
         <RouterProvider router={router} />
       </AppProviders>,
     );
-    expect(await screen.findByTestId('me')).toHaveTextContent('Dev user: 1');
+    expect(await screen.findByTestId('me')).toHaveTextContent('Authenticated user: 1');
 
     act(() => saveSession(testSession(OTHER_USER)));
 
     expect(await screen.findByText('other@example.com')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('me')).toHaveTextContent('Dev user: 2'));
-    expect(screen.queryByText('Dev user: 1', { exact: false })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('me')).toHaveTextContent('Authenticated user: 2'),
+    );
+    expect(screen.queryByText('Authenticated user: 1', { exact: false })).not.toBeInTheDocument();
   });
 });
 
@@ -327,7 +329,13 @@ describe('delayed logout response vs. a new login', () => {
     return <button onClick={() => void logout()}>Log out now</button>;
   }
 
-  it('login waits for the aborted logout, so the late response cannot delete the new refresh cookie', async () => {
+  // The mock models what a late answer would do (its `Set-Cookie` deletes the cookie) only for a request that was
+  // not aborted, like the default Logout mock. It does NOT reproduce the real HttpOnly cookie handling of a browser;
+  // that needs a browser against the real backend (staging integration).
+  // Three layers protect the cookie here: the abort after the timeout, `waitForPendingLogout`, and the cookie lock
+  // (a logout in flight holds it, so a login cannot overtake it). The `logoutAborted` and ordering assertions pin
+  // the first two; the cookie assertion is the outcome that must survive in any case.
+  it('a login after a slow logout starts only after that request was aborted, so its late answer does not clear the new cookie (mock model)', async () => {
     signInForTest();
     const events: string[] = [];
     let logoutAborted = false;
@@ -339,6 +347,7 @@ describe('delayed logout response vs. a new login', () => {
           events.push('logout:aborted');
         });
         await delay(250); // the server is slow; its answer would arrive after the new login
+        if (!request.signal.aborted) clearMockRefreshCookie(); // the Set-Cookie of a delivered answer
         return HttpResponse.json({ data: { logout: true } });
       }),
     );

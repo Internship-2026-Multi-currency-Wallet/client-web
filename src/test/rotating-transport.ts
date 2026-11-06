@@ -152,17 +152,15 @@ function controls(): OperationControls & {
 }
 
 /**
- * `rotatingTransport` plus `Login` and `Logout`, for the cross-tab cookie races (F2). SIMULATED server behavior (the
- * real Login/Logout resolvers are not merged; wallet-core PRs #12 and #15 are open): S2 and S4 are ASSUMPTIONS, not
- * backend facts. Open PR #15 (head 5750415) differs from S2 and agrees with S3 and S4, see below.
+ * `rotatingTransport` plus `Login` and `Logout`, for the cross-tab cookie races (F2). A SIMULATION of wallet-core
+ * (merged auth, `auth.service.ts`), simplified where the difference cannot change what these races prove.
  *
- * - S1 (confirmed by the backend developer) refresh rotates the token, the old one dies at once, no grace period.
- * - S2 (assumption) Login starts a NEW independent session and sets its cookie; it revokes no other session.
- *   DIFFERS from PR #15: login also revokes the session of the refresh cookie the request carried ("login replaces its
- *   refresh cookie"). Not applied here until #15 is merged.
- * - S3 (assumption) Logout revokes exactly the session of the cookie it carries (not a token family, not every
- *   session of the user), answers `true` always, and its answer deletes the cookie, even a newer one.
- * - S4 (assumption) A failed refresh does not touch the cookie. Matches PR #15 (no Set-Cookie on INVALID_REFRESH_TOKEN).
+ * - S1 refresh rotates the token, the old one dies at once, no grace period.
+ * - S2 Login starts a NEW session and sets its cookie. SIMPLIFIED: the real login also revokes the session of the
+ *   refresh cookie the request carried; not modeled, because every race here is about which cookie is current.
+ * - S3 Logout revokes exactly the session of the cookie it carries (not every session of the user), answers `true`
+ *   always, and its answer deletes the cookie, even a newer one.
+ * - S4 A failed refresh does not touch the cookie (no Set-Cookie on `INVALID_REFRESH_TOKEN`).
  * Browser side (modeled, same as in `rotating-backend.ts`): the cookie is read when the request is sent and
  * `Set-Cookie` is applied when the answer is delivered, independently of what the page does with the answer.
  */
@@ -208,6 +206,10 @@ export function rotatingAuthTransport(backend: RotatingBackend, jar: CookieJar):
 
   return {
     ...base,
+    // A spread would copy the value the `refreshCalls` getter has now; forward it so it stays live.
+    get refreshCalls() {
+      return base.refreshCalls;
+    },
     login: loginControls,
     logout: logoutControls,
     handlers: [...base.handlers, login, logout],

@@ -44,7 +44,7 @@ export interface AuthCookieLockOptions {
    * Without the Web Locks API: `'fail'` (default, used by the refresh) throws; `'run'` (login and logout) runs the
    * operation WITHOUT coordination and warns once on the console. Login and logout must keep working in such a
    * browser, and a logout that is skipped would leave the session alive on the server; the price is that the
-   * cross-tab cookie races below are possible there. Product decision pending (see README).
+   * cross-tab cookie races below are possible there. Web Locks need a secure context (https or localhost).
    */
   whenUnavailable?: 'fail' | 'run';
 }

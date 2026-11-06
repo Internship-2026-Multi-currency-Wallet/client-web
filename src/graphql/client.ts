@@ -9,6 +9,8 @@ import { authorizationHeader } from './dev-auth';
 import {
   accessToken,
   clearSessionIf,
+  isAccessTokenExpired,
+  loadSession,
   renewSession,
   SessionChangedError,
   sessionGeneration,
@@ -150,7 +152,10 @@ const AUTH_OPERATIONS = new Set(['Register', 'Login', 'RefreshSession', 'Logout'
 
 // The answer is the same for everybody, so it stays valid when the user changes while it is on the wire (the
 // client settings gate of E1-2 must not fail on login/logout). They still carry a token if there is one.
-const PUBLIC_OPERATIONS = new Set(['WalletCoreHealth', 'PublicSettings']);
+export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
+  'WalletCoreHealth',
+  'PublicSettings',
+]);
 
 function hasOperationNamed(document: DocumentNode, names: ReadonlySet<string>): boolean {
   return document.definitions.some(
@@ -231,6 +236,29 @@ async function run<TResult, TVariables extends Record<string, unknown>>(
   return result;
 }
 
+/**
+ * The access token is only checked when the socket is (re)connected, so a reconnect after a sleep or a dropped
+ * network can find it expired. Unlike an HTTP request, a rejected connection is not retried by `run()`: graphql-ws
+ * treats the server's `Unauthorized` close as final and the subscription would stay dead until the page remounts.
+ * So an expired token is renewed first, through the same single-flight refresh as everywhere else; if that is not
+ * possible the connection is not attempted with a token the server is known to reject.
+ */
+async function connectionParams(): Promise<Record<string, string>> {
+  const session = loadSession();
+  if (!session || !isAccessTokenExpired(session)) return headers();
+  // A fixed message on purpose: graphql-ws puts the error text into the close reason, and a raw `ClientError` carries
+  // the request. An ordinary error also makes graphql-ws give up at once instead of retrying with a token that is dead.
+  const unrenewable = new Error('The live connection needs a session that could not be renewed.');
+  try {
+    if (!(await refreshSession())) throw unrenewable;
+  } catch {
+    throw unrenewable;
+  }
+  const renewed = loadSession();
+  if (!renewed || isAccessTokenExpired(renewed)) throw unrenewable;
+  return headers();
+}
+
 const wsClients = new Map<Service, Client>();
 
 function wsClient(service: Service): Client {
@@ -238,7 +266,7 @@ function wsClient(service: Service): Client {
   if (!client) {
     const url = wsUrls[service];
     if (!url) throw new Error(`No websocket URL configured for ${service}`);
-    client = createClient({ url, lazy: true, connectionParams: headers, retryAttempts: 5 });
+    client = createClient({ url, lazy: true, connectionParams, retryAttempts: 5 });
     wsClients.set(service, client);
   }
   return client;

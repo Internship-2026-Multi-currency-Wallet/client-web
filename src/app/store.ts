@@ -5,6 +5,7 @@ import { clearPrivateCache } from '../features/auth/privateCache';
 import { onSessionChange } from '../graphql/session';
 import { serverTimeReducer } from '../features/server-time/serverTimeSlice';
 import { api } from './api';
+import { devToolsOptions } from './devtools';
 
 let detachSessionSync: (() => void) | undefined;
 
@@ -17,6 +18,7 @@ export function createStore() {
       serverTime: serverTimeReducer,
     },
     middleware: (getDefault) => getDefault().concat(api.middleware),
+    devTools: devToolsOptions(import.meta.env.DEV),
   });
   // The session lives in localStorage (graphql/session.ts); mirror its changes (login, silent refresh, logout,
   // another tab) into Redux. Another user (or nobody) means the private cache goes; a token refresh keeps it.

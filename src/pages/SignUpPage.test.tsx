@@ -72,6 +72,36 @@ describe('SignUpPage', () => {
     expect(calls).toBe(0);
   });
 
+  it.each(['user@пошта.укр', 'ü@example.com', 'a..b@example.com', '.a@example.com'])(
+    'does not call the API for the email %s, which wallet-core rejects',
+    async (rejected) => {
+      let calls = 0;
+      server.use(
+        graphql.link(config.walletCoreUrl).mutation('Register', () => {
+          calls += 1;
+          return HttpResponse.json({ data: null });
+        }),
+      );
+      await open();
+      await userEvent.type(email(), rejected);
+      await userEvent.type(password(), NEW_USER.password);
+      await userEvent.click(submit());
+
+      expect(email()).toHaveAccessibleDescription('Enter a valid email address');
+      expect(calls).toBe(0);
+    },
+  );
+
+  it('treats the email case-insensitively and ignores surrounding spaces, like wallet-core', async () => {
+    await open();
+    await userEvent.type(email(), `  ${DEMO_USER.email.toUpperCase()}  `);
+    await userEvent.type(password(), NEW_USER.password);
+    await userEvent.click(submit());
+
+    expect(await screen.findByText(/already registered/i)).toBeInTheDocument();
+    expect(email()).toHaveAccessibleDescription(/already registered/i);
+  });
+
   it('shows "email already registered" under the email and clears it on edit', async () => {
     const { router } = await open();
     await userEvent.type(email(), DEMO_USER.email.toUpperCase()); // case-insensitive

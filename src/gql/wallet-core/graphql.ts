@@ -17,7 +17,7 @@ export type LoginInput = {
 export type RegisterInput = {
   /** Must be a valid email address. Case-insensitive, must not be registered yet. */
   email: string;
-  /** At least 8 characters, with at least one digit, one uppercase letter and one special character (not a letter or digit). */
+  /** 8 to 128 characters, with at least one digit, one uppercase letter and one special character (not a letter or digit). */
   password: string;
   /** Optional phone number in international format, e.g. "+380501234567". */
   phone?: string | null | undefined;

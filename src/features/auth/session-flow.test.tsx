@@ -45,7 +45,7 @@ describe('protected routes and session lifecycle', () => {
     signInForTest();
     renderApp('/');
     expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
-    expect(await screen.findByTestId('me')).toHaveTextContent('Dev user: 1');
+    expect(await screen.findByTestId('me')).toHaveTextContent('Authenticated user: 1');
     expect(screen.getByText('demo@example.com')).toBeInTheDocument();
   });
 
@@ -54,7 +54,7 @@ describe('protected routes and session lifecycle', () => {
     const stale = accessToken();
     const { router } = renderApp('/');
 
-    expect(await screen.findByTestId('me')).toHaveTextContent('Dev user: 1');
+    expect(await screen.findByTestId('me')).toHaveTextContent('Authenticated user: 1');
     expect(router.state.location.pathname).toBe('/');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(accessToken()).not.toBe(stale);
@@ -72,17 +72,23 @@ describe('protected routes and session lifecycle', () => {
   it('shows nothing private while an expired session is being renewed, then opens the page', async () => {
     signInForTest({ expired: true });
     const log = newLog();
+    // Held until released: a fixed delay made the "restoring" state vanish before a slow runner looked at it.
+    let renewed!: () => void;
+    const renewal = new Promise<void>((resolve) => (renewed = resolve));
     server.use(
       meHandler(log),
-      refreshHandler(log, () => delay(80)),
+      refreshHandler(log, () => renewal),
     );
     renderApp('/');
 
-    expect(await screen.findByText('Restoring your session…')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Welcome' })).not.toBeInTheDocument();
-    expect(screen.queryByText('demo@example.com')).not.toBeInTheDocument();
-    expect(log.me).toBe(0); // the stale token was never used
-
+    try {
+      expect(await screen.findByText('Restoring your session…')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Welcome' })).not.toBeInTheDocument();
+      expect(screen.queryByText('demo@example.com')).not.toBeInTheDocument();
+      expect(log.me).toBe(0); // the stale token was never used
+    } finally {
+      renewed(); // also when an assertion above fails: never leave the refresh request hanging
+    }
     expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
     expect(log.refresh).toBe(1);
     expect(log.headers.every((header) => header === `Bearer ${accessToken()}`)).toBe(true);
@@ -127,6 +133,36 @@ describe('protected routes and session lifecycle', () => {
 
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(loadSession()).not.toBeNull();
+  });
+
+  it('without Web Locks explains that the session cannot be renewed here: no Retry, no server-outage claim, login still works', async () => {
+    const realLocks = navigator.locks;
+    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
+    try {
+      signInForTest({ expired: true });
+      const log = newLog();
+      server.use(refreshHandler(log));
+      const { router } = renderApp('/');
+
+      expect(await screen.findByText(/cannot renew it safely/i)).toBeInTheDocument();
+      expect(screen.getByText(/Web Locks/)).toBeInTheDocument();
+      expect(screen.queryByText(/could not reach the server/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Welcome' })).not.toBeInTheDocument();
+      expect(log.refresh).toBe(0); // fail-closed: no uncoordinated rotating refresh was sent
+      expect(loadSession()).not.toBeNull();
+
+      // The way out is a fresh login, which needs no lock; it must not bounce back into the same state.
+      await userEvent.click(screen.getByRole('link', { name: 'Log in' }));
+      await userEvent.type(await screen.findByLabelText(/^email/i), 'demo@example.com');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'Demo1234!');
+      await userEvent.click(screen.getByRole('button', { name: 'Log in' }));
+      expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/');
+      expect(log.refresh).toBe(0);
+    } finally {
+      Object.defineProperty(navigator, 'locks', { value: realLocks, configurable: true });
+    }
   });
 
   it.each([
@@ -255,7 +291,7 @@ describe('protected routes and session lifecycle', () => {
     });
     await delay(80);
 
-    expect(screen.getByTestId('me')).toHaveTextContent('Dev user: 1'); // still there, same user
+    expect(screen.getByTestId('me')).toHaveTextContent('Authenticated user: 1'); // still there, same user
     expect(log.me).toBe(1); // not fetched again
   });
 });

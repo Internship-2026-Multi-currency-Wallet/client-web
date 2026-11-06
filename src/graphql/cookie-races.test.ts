@@ -18,17 +18,13 @@ import {
  * run through the REAL frontend modules (`authApi.login`, `authApi.logout` as `useLogout` uses them, `refreshSession`,
  * the session module and the Redux store) in independent "tabs".
  *
- * WHAT IS CONFIRMED vs SIMULATED. Confirmed by the backend developer: every refresh rotates the token and the old one
- * dies at once (no grace period). SIMULATED, not confirmed (real Login/Logout resolvers are not merged; Login is in
- * PR #12, refresh/logout in PR #15; #15 differs from S2: login revokes the session of the cookie it carried): see
- * `rotating-transport.ts` S2-S4 (Login starts an independent session; Logout revokes only the session of
- * the cookie it carries and its answer always deletes the cookie; a failed refresh leaves the cookie alone). The
+ * The server side is the simulation in `rotating-transport.ts` (S1-S4, modeled on the merged wallet-core auth). The
  * browser model (cookie read at send time, `Set-Cookie` applied at delivery, independent of the page) is standard HTTP,
- * but it is a model, not a browser.
+ * but it is a model, not a browser; the real backend and a real browser are covered by the manual integration run.
  *
- * The expected values below are the CORRECT behavior. Tests marked `F2 REPRODUCTION` fail on the current production
- * code (Login and Logout do not use the `wallet.auth-cookie` lock) and are the reproduction of the race; they must pass
- * after the fix. The controls (no overlap) pass today and must keep passing.
+ * The expected values below are the CORRECT behavior. Tests marked `F2 REPRODUCTION` reproduced the race before Login
+ * and Logout took the `wallet.auth-cookie` lock and now guard the fix; they would fail without that lock. The controls
+ * (no overlap) never depended on it and must keep passing.
  */
 const { gate } = installTabCleanup();
 
@@ -62,6 +58,20 @@ function signedIn(backend: RotatingBackend, jar: CookieJar, user = TEST_USER) {
 const DEMO = 'demo@example.com'; // user 1
 const OTHER = 'other@example.com'; // user 2
 
+describe('the combined test transport', () => {
+  it('counts refreshes live: a getter, not a value copied when the transport was created', async () => {
+    const { backend, jar, transport } = newServer();
+    expect(transport.refreshCalls).toBe(0);
+
+    signedIn(backend, jar);
+    const tab = await openTab();
+    await tab.client.refreshSession();
+
+    expect(transport.refreshCalls).toBe(1);
+    expect(backend.events.filter((event) => event.startsWith('refresh:'))).toHaveLength(1);
+  });
+});
+
 describe('F2-A: two Logins as different users in two tabs', () => {
   it('F2 REPRODUCTION: a stale Login answer must not leave the cookie of one user next to the session of another', async () => {
     const { backend, jar, transport } = newServer();
@@ -75,7 +85,7 @@ describe('F2-A: two Logins as different users in two tabs', () => {
     await transport.login.consumed(1); // the server made a session for user 1; A has not heard back
     let settledB = false;
     const loginB = loginAs(tabB, OTHER).then((r) => ((settledB = true), r)); // user 2, answered at once
-    await waitUntilSettledOrParked(() => settledB); // today B finishes; after the fix it waits for A
+    await waitUntilSettledOrParked(() => settledB); // B waits for A on the cookie lock (without the lock B would finish at once)
 
     deliveryA.open(); // A's answer (and its Set-Cookie) lands last
     await loginA;
@@ -113,7 +123,7 @@ describe('F2-B: Logout in tab A overlapping a Login in tab B', () => {
 
     let settledB = false;
     const loginB = loginAs(tabB, OTHER).then((r) => ((settledB = true), r));
-    await waitUntilSettledOrParked(() => settledB); // today B logs in at once; after the fix it waits for the logout
+    await waitUntilSettledOrParked(() => settledB); // B waits for the logout on the cookie lock (without the lock B would log in at once)
 
     deliveryLogout.open(); // the old logout answer lands now
     await loginB;
@@ -193,8 +203,8 @@ describe('F2-C: Refresh in tab A overlapping a Login in tab B', () => {
 
 describe('F2-D: Logout in tab B overlapping a Refresh in tab A', () => {
   /**
-   * ASSUMPTION S3 matters here: if the real Logout revokes the whole session / token family / every session of the
-   * user, an old Logout cannot miss the token a newer Refresh issued, and this is not a defect.
+   * S3 matters here: the real Logout revokes only the session of the cookie it carries (by hash), so an old Logout
+   * can miss the token a newer Refresh rotated to. That residual server-side race is not fixable in the client.
    */
   it('F2 REPRODUCTION (under S3): after logout no usable refresh token is left, neither on the server nor in the cookie', async () => {
     const { backend, jar, transport } = newServer();

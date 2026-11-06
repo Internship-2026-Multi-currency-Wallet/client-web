@@ -12,7 +12,7 @@ async function logIn(page: Page) {
 test('home shows health, the signed-in user and live server time (mocks)', async ({ page }) => {
   await logIn(page);
   await expect(page.getByTestId('health')).toContainText('Connected to wallet-core: wallet-core');
-  await expect(page.getByTestId('me')).toContainText('Dev user: 1 (permissions: wallet)');
+  await expect(page.getByTestId('me')).toContainText('Authenticated user: 1 (permissions: wallet)');
 
   const serverTime = page.getByTestId('server-time');
   await expect(serverTime).toHaveText(/^\d{4}-\d{2}-\d{2}T/);

@@ -9,11 +9,11 @@ import type {
   RegisterMutation,
   RegisterMutationVariables,
 } from '../gql/wallet-core/graphql';
+import { EMAIL_PATTERN, normalizeEmail, PHONE_PATTERN } from '../features/auth/validation';
 
 /**
  * Mock of the wallet-core auth contract (schema from `wallet-core/main`, PR #2 + #5). `Register` follows the merged
- * resolver (PR #8: `register.schema.ts`). `Login`, `RefreshSession` and `Logout` are not merged yet (PRs #12, #15 are
- * open), so those rules come from the contract text; the one marked ASSUMPTION is not in it.
+ * resolver (`register.schema.ts`); `Login`, `RefreshSession` and `Logout` follow the merged `auth.service.ts`.
  *
  * The HttpOnly refresh cookie is imitated with a plain `mock_refresh` cookie (handlers run in the page, so
  * `document.cookie` works in the browser and in jsdom). Mock users are kept in `sessionStorage` (until the tab
@@ -114,18 +114,23 @@ function authPayload(user: MockUser) {
   };
 }
 
-/** The first invalid field, in the contract's rules. */
+/**
+ * The first invalid field, exactly like `registerInputSchema` of wallet-core (same order, same rules and messages).
+ * The email and phone patterns are the client's own (`validation.ts`); `validation.parity.test.ts` compares them
+ * with the backend's zod schema. `phone`: omitted or `null` = none; an empty string is invalid (not trimmed).
+ */
 function registerInputProblem(input: RegisterMutationVariables['input']) {
-  const email = input.email.trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const email = normalizeEmail(input.email);
+  if (!EMAIL_PATTERN.test(email)) {
     return { field: 'email', message: 'Email must be a valid email address' };
   }
   if (email.length > 255) {
     return { field: 'email', message: 'Email must be at most 255 characters' };
   }
   const p = input.password;
-  if (p.length < 8 || p.length > 128) {
-    return { field: 'password', message: 'Password must be between 8 and 128 characters' };
+  if (p.length < 8) return { field: 'password', message: 'Password must be at least 8 characters' };
+  if (p.length > 128) {
+    return { field: 'password', message: 'Password must be at most 128 characters' };
   }
   if (!/\d/.test(p))
     return { field: 'password', message: 'Password must contain at least one digit' };
@@ -135,7 +140,7 @@ function registerInputProblem(input: RegisterMutationVariables['input']) {
   if (!/[^\p{L}\p{N}]/u.test(p)) {
     return { field: 'password', message: 'Password must contain at least one special character' };
   }
-  if (input.phone && !/^\+[1-9]\d{6,14}$/.test(input.phone)) {
+  if (input.phone != null && !PHONE_PATTERN.test(input.phone)) {
     return { field: 'phone', message: 'Phone must be in international format, e.g. +380501234567' };
   }
   return null;
@@ -147,14 +152,14 @@ export const authHandlers = [
     const problem = registerInputProblem(input);
     if (problem) return graphqlError('BAD_USER_INPUT', problem.message, { field: problem.field });
 
-    const email = input.email.trim().toLowerCase();
+    const email = normalizeEmail(input.email);
     if (users.has(email)) {
       return graphqlError('EMAIL_ALREADY_REGISTERED', 'Email is already registered');
     }
     const user: MockUser = {
       id: String(Math.max(0, ...[...users.values()].map((u) => Number(u.id))) + 1),
       email,
-      phone: input.phone || null,
+      phone: input.phone ?? null,
       password: input.password,
       failedLogins: 0,
       lockedUntil: null,
@@ -167,7 +172,7 @@ export const authHandlers = [
 
   walletCore.mutation<LoginMutation, LoginMutationVariables>('Login', ({ variables }) => {
     const { email, password } = variables.input;
-    const user = users.get(email.trim().toLowerCase());
+    const user = users.get(normalizeEmail(email));
     // Unknown email and wrong password look the same on purpose.
     if (!user) return graphqlError('INVALID_CREDENTIALS', 'Invalid email or password');
 
@@ -187,7 +192,7 @@ export const authHandlers = [
         user.failedLogins = 0;
         user.lockedUntil = Date.now() + LOCK_MS;
         persistUsers();
-        // ASSUMPTION: the 5th failed attempt already answers ACCOUNT_LOCKED (the contract does not say).
+        // Same as the backend: the 5th failed attempt is the one that already answers ACCOUNT_LOCKED.
         return lockedError();
       }
       persistUsers();

@@ -6,7 +6,10 @@ import type { AppDispatch, RootState } from '../../app/store';
  * Endpoints whose data is the same for everybody and may survive a change of identity (the client settings gate
  * of E1-2 must not flash its loading screen on login/logout). Everything else is treated as private.
  */
-const PUBLIC_ENDPOINTS: ReadonlySet<string> = new Set(['walletCoreHealth', 'publicSettings']);
+export const PUBLIC_ENDPOINTS: ReadonlySet<string> = new Set([
+  'walletCoreHealth',
+  'publicSettings',
+]);
 
 /**
  * Drops all cached private query data. Fail-closed: a new endpoint is private unless listed above.

@@ -101,6 +101,9 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
 - The **access token** (15 min) and the user are kept in `localStorage` (`src/graphql/session.ts`, team decision for
   the MVP). The **refresh token** is an HttpOnly cookie that wallet-core sets; requests to wallet-core use
   `credentials: 'include'`. Redux (`features/auth/authSlice.ts`) only mirrors the user.
+- Redux DevTools are off in production builds. In development they redact `password` and token values from the action
+  history (`src/app/devtools.ts`), because RTK Query keeps the Login/Register arguments in its actions. That protects
+  only the DevTools view: a middleware that ships actions elsewhere (logger, error reporter) must redact them too.
 - `request()` in `src/graphql/client.ts` adds `Authorization: Bearer …`. On `UNAUTHENTICATED` it refreshes the session
   once (concurrent requests share one refresh), repeats the request once, and clears the session if the refresh
   session is over. The dev user (`VITE_DEV_USER`) is only used while nobody is signed in.
@@ -127,8 +130,12 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   is signed in: an answer for another user ends the session instead. Requests are cancelled after 15 s (the lock is
   never given up while a request may still change the cookie); a timeout or network error keeps the session and is not
   retried. **Without Web Locks** a refresh fails with a clear error instead of rotating uncoordinated, while login and
-  logout still run, uncoordinated, with a console warning (so the cross-tab cookie races are possible there). _This
-  browser-support policy is pending mentor approval._
+  logout still run, uncoordinated, with a console warning (so the cross-tab cookie races are possible there). The
+  Web Locks API needs a secure context (`https://` or `localhost`) and a current browser (it is available in every
+  browser the production build targets). When it is missing and the access token has expired, the app says that the
+  session cannot be renewed in this browser and offers a new login instead of a Retry; there is no alternative
+  locking (`BroadcastChannel`/`localStorage`) on purpose, because a lock that is not really exclusive would bring
+  the rotation race back.
 - Logout clears the local session first and then waits at most 5 s for the server; if the server does not confirm,
   the login page says so (the refresh cookie may live on until it expires).
 - Mock mode prints a console warning when a request to a backend has no handler (instead of failing silently with
@@ -136,6 +143,27 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   Application → Service Workers → "Bypass for network" is off.
 - With `VITE_USE_MOCKS=true` the mock user is `demo@example.com` / `Demo1234!`; accounts you register stay until the
   tab is closed (use fake passwords). 5 wrong passwords lock the mock account for 15 minutes.
+- **Known mock limitation (mock mode only, not a production behaviour):** the mock accounts live in each tab's own
+  `sessionStorage`, while the session and the mock refresh cookie are shared by all tabs. An account registered in
+  one tab is therefore unknown to a second, independently opened tab: logging in there fails, and a refresh of that
+  session fails with `INVALID_REFRESH_TOKEN`. The demo user exists in every tab. Test multi-tab behaviour with the
+  demo user, or against a real backend.
+
+### Against a real backend
+
+The refresh cookie of wallet-core is `HttpOnly; Secure; SameSite=Strict; Path=/graphql`, without `Domain` (so it
+belongs to the backend host only). The browser therefore stores and sends it only when the app and the backend are
+the **same site**, and the backend must list the app's origin in its `CORS_ORIGINS` (credentials are included).
+
+- **Deployed** (`https://<env>.wallet.shatori.com` → `https://<env>-wallet-core.wallet.shatori.com`): same site,
+  origin allowed. This is the supported setup.
+- **Local app (`npm run dev`) → deployed backend: does not work.** `localhost` is another site than
+  `shatori.com`, and the deployed backends do not allow `http://localhost:*` in `CORS_ORIGINS` (the browser blocks
+  even the first response). Even if they did, `SameSite=Strict` would drop the cookie, so login would work but no
+  refresh ever would.
+- **Local app → local backend:** `npm run infra -- up wallet-core` (see above), then `npm run dev`. `localhost:5173` and
+  `localhost:3000` are the same site and `5173` is in the default `CORS_ORIGINS`. The container runs with
+  `NODE_ENV=production`, so the cookie is `Secure`; some browsers refuse a `Secure` cookie from plain `http://localhost` (the backend's own comment says so). Use a browser that accepts it, e.g. current Chromium.
 
 ## GraphQL: contract, types and mocks
 

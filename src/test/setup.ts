@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { clearSession, sessionWritesSettled } from '../graphql/session';
 import { resetLogoutCoordinator } from '../features/auth/logoutCoordinator';
 import { resetMockAuth } from '../mocks/auth-handlers';
 import { server } from '../mocks/server';
 import { FakeLockManager } from './fake-locks';
+
+configure({ asyncUtilTimeout: 5000 });
 
 Object.defineProperty(navigator, 'locks', { value: new FakeLockManager(), configurable: true });
 

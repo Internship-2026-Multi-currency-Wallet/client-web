@@ -61,7 +61,7 @@ export const parkedOnCookieLock = () => locks().pending(AUTH_COOKIE_LOCK) > 0;
 
 /**
  * Waits until `settled()` is true OR a request is parked on the cookie lock: "the tab has done everything it can".
- * (Today nothing is parked for Login/Logout; after the F2 fix the second tab waits for the lock instead of sending.)
+ * (Login, Logout and Refresh all take the lock, so a second tab waits for it instead of sending.)
  */
 export function waitUntilSettledOrParked(settled: () => boolean) {
   return vi.waitFor(() => {
