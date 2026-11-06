@@ -5,13 +5,10 @@ import { buildAppRoutes } from './routes';
 
 type CreateRouter = (routes: RouteObject[]) => ReturnType<typeof createBrowserRouter>;
 
-/**
- * Creates the router under `SettingsGate`: the routes depend on `products.enabled`, which is
- * known only once the settings have loaded. Tests pass a memory router instead of the browser one.
- */
+/** Routes depend on `products.enabled`, so the router is created only under `SettingsGate`. */
 export function AppRouter({ createRouter = createBrowserRouter }: { createRouter?: CreateRouter }) {
   const products = useClientSetting('products.enabled');
-  // Rebuilt only when the product list changes; RTK Query keeps the same array for equal data.
+  // RTK Query preserves array identity when the settings data is unchanged.
   const router = useMemo(
     () => createRouter(buildAppRoutes(products).routes),
     [createRouter, products],

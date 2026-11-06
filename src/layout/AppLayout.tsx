@@ -2,7 +2,6 @@ import { AppBar, Box, Button, Chip, Container, Toolbar, Typography } from '@mui/
 import { Link as RouterLink, Outlet } from 'react-router';
 import { config } from '../config-env';
 
-/** A link in the app header. */
 export interface MenuItem {
   path: string;
   label: string;

@@ -9,10 +9,6 @@ interface Product extends MenuItem {
   element: ReactNode;
 }
 
-/**
- * Products this app can show, in menu order. The client setting `products.enabled` picks which
- * of them a client gets, so a product is switched on or off without a code change.
- */
 const PRODUCTS: Record<string, Product> = {
   wallet: { path: '/wallet', label: 'Wallet', element: <WalletPage /> },
 };
@@ -24,11 +20,7 @@ export interface AppRoutes {
   menuItems: MenuItem[];
 }
 
-/**
- * Routes and header menu for the enabled products, built together so they can never disagree:
- * a product that is not enabled has neither, and its URL falls through to "Page not found".
- * Names the catalog does not know yet are ignored, so the backend can add a product first.
- */
+/** Ignores unknown products, so the backend can add one before this app supports it. */
 export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
   const products = Object.entries(PRODUCTS)
     .filter(([name]) => enabledProducts.includes(name))
