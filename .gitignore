@@ -12,10 +12,11 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
-# env files (keep the example)
+# env files (keep the example and the committed `--mode mocks` file)
 .env
 .env.*
 !.env.example
+!.env.mocks
 
 # logs and OS files
 *.log
