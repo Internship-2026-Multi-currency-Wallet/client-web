@@ -1,6 +1,7 @@
 import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
+import { authHandlers, userIdFromBearer } from './auth-handlers';
 import type {
   MeQuery,
   PublicSettingsQuery,
@@ -39,6 +40,8 @@ export const handlers = [
     }),
   ),
 
+  ...authHandlers,
+
   // Values of the agreed settings catalog (not a live backend response).
   walletCore.query<PublicSettingsQuery>('PublicSettings', () =>
     HttpResponse.json({
@@ -53,6 +56,12 @@ export const handlers = [
   ),
 
   walletCore.query<MeQuery>('Me', ({ request }) => {
+    const bearerId = userIdFromBearer(request.headers.get('authorization'));
+    if (bearerId) {
+      return HttpResponse.json({
+        data: { me: { id: bearerId, permissions: ['wallet'], strategy: 'jwt' } },
+      });
+    }
     const user = devUserFrom(request);
     if (!user) {
       return HttpResponse.json({
