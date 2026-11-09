@@ -2,7 +2,12 @@ import { AppBar, Box, Button, Chip, Container, Toolbar, Typography } from '@mui/
 import { Link as RouterLink, Outlet } from 'react-router';
 import { config } from '../config-env';
 
-export function AppLayout() {
+export interface MenuItem {
+  path: string;
+  label: string;
+}
+
+export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
       <AppBar position="static">
@@ -12,9 +17,11 @@ export function AppLayout() {
           </Typography>
           {config.useMocks && <Chip label="mocks" color="warning" size="small" sx={{ mr: 1 }} />}
           <Chip label={`client: ${config.client}`} size="small" sx={{ mr: 2, color: 'inherit' }} />
-          <Button color="inherit" component={RouterLink} to="/">
-            Home
-          </Button>
+          {menuItems.map(({ path, label }) => (
+            <Button key={path} color="inherit" component={RouterLink} to={path}>
+              {label}
+            </Button>
+          ))}
         </Toolbar>
       </AppBar>
       <Container maxWidth="md" sx={{ py: 4 }}>

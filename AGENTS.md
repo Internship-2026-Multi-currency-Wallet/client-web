@@ -15,8 +15,12 @@ graphql-request / graphql-ws, GraphQL Code Generator and MSW. Read `README.md` f
   and never build auth headers yourself.
 - **Mocks are required.** Every new operation gets an MSW handler in `src/mocks/handlers.ts`; every screen must
   work with `VITE_USE_MOCKS=true`.
-- **Config** only via `src/config-env.ts` (`VITE_*` overrides with safe defaults). No `if (client === 'kvitka')` in
-  shared code — client differences come from settings/flags.
+- **Config** only via `src/config-env.ts` (`VITE_*` overrides with safe defaults).
+- **Client differences.** Never `if (client === 'kvitka')` in shared code; differences come from settings/flags.
+  Products come from the `products.enabled` setting: `buildAppRoutes` (`src/app/routes.tsx`) builds the routes and the
+  menu items together, so a product that is not enabled has neither. Add a product = one entry in its `PRODUCTS`
+  catalog. UI that only one client has lives as code on that client's branch (`client/<client>-uat`), like
+  `src/brand/`, and is never merged into `main`.
 - **MUI:** use theme values and the `sx` prop (MUI 9 has no system props on layout components).
 - **Money:** integers in minor units; format for display only. Never floating point math on amounts.
 - **Tests are required:** Vitest + React Testing Library next to the code (`*.test.ts(x)`), using MSW; Playwright
