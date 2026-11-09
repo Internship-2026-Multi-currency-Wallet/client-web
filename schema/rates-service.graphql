@@ -10,6 +10,9 @@ enum DependencyStatus {
 
 """Service health and identity."""
 type Health {
+  """Environment (APP_ENV): local, staging, kvitka-uat, wisla-uat."""
+  appEnv: String!
+
   """Client this deployment serves (CLIENT env): demo, kvitka, wisla."""
   client: String!
   db: DependencyStatus!
@@ -25,6 +28,7 @@ type Health {
 """The authenticated caller."""
 type Me {
   id: ID!
+  kind: UserKind!
 
   """Permission strings, e.g. "bo:users:modify"."""
   permissions: [String!]!
@@ -37,7 +41,9 @@ type Query {
   """Service health. Does not require authentication."""
   health: Health!
 
-  """The current user. Requires authentication."""
+  """
+  The current user (a client or a staff member). Requires authentication.
+  """
   me: Me!
 }
 
@@ -46,4 +52,10 @@ type Subscription {
   Current server time (ISO 8601), emitted every second. Requires authentication.
   """
   serverTime: String!
+}
+
+"""CLIENT: a wallet user. STAFF: a back-office staff member."""
+enum UserKind {
+  CLIENT
+  STAFF
 }

@@ -60,7 +60,8 @@ export const handlers = [
         errors: [{ message: 'Authentication required', extensions: { code: 'UNAUTHENTICATED' } }],
       });
     }
-    return HttpResponse.json({ data: { me: { ...user, strategy: 'dev' } } });
+    // Only clients use client-web; the dev header has no user type until E1-13.
+    return HttpResponse.json({ data: { me: { ...user, kind: 'CLIENT', strategy: 'dev' } } });
   }),
 
   ratesServiceWs.subscription<ServerTimeSubscription>(
