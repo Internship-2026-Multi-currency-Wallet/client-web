@@ -16,12 +16,12 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
 type Documents = {
     "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": typeof types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": typeof types.WalletCoreHealthDocument,
-    "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": typeof types.MeDocument,
+    "\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n": typeof types.MeDocument,
 };
 const documents: Documents = {
     "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": types.WalletCoreHealthDocument,
-    "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n": types.MeDocument,
+    "\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n": types.MeDocument,
 };
 
 /**
@@ -49,7 +49,7 @@ export function graphql(source: "\n  query WalletCoreHealth {\n    health {\n   
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n"): (typeof documents)["\n  query Me {\n    me {\n      id\n      permissions\n      strategy\n    }\n  }\n"];
+export function graphql(source: "\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n"): (typeof documents)["\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
