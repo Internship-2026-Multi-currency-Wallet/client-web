@@ -10,16 +10,23 @@ describe('describeLoginError', () => {
 
   it('shows the unlock time for ACCOUNT_LOCKED', () => {
     const lockedUntil = '2026-11-02T10:15:00.000Z';
-    const message = describeLoginError({ code: 'ACCOUNT_LOCKED', message: 'x', lockedUntil });
+    const message = describeLoginError({
+      code: 'ACCOUNT_LOCKED',
+      message: 'x',
+      extensions: { lockedUntil },
+    });
     expect(message).toContain('locked until');
     expect(message).toContain(formatUnlockTime(lockedUntil)!);
   });
 
   it('copes with a missing or malformed lockedUntil', () => {
-    for (const lockedUntil of [undefined, 'garbage']) {
-      expect(describeLoginError({ code: 'ACCOUNT_LOCKED', message: 'x', lockedUntil })).toMatch(
-        /locked\. Try again later/,
-      );
+    expect(describeLoginError({ code: 'ACCOUNT_LOCKED', message: 'x' })).toMatch(
+      /locked\. Try again later/,
+    );
+    for (const lockedUntil of [undefined, 'garbage', 42, null]) {
+      expect(
+        describeLoginError({ code: 'ACCOUNT_LOCKED', message: 'x', extensions: { lockedUntil } }),
+      ).toMatch(/locked\. Try again later/);
     }
   });
 

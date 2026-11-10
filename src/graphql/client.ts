@@ -1,11 +1,12 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
-import { ClientError, GraphQLClient } from 'graphql-request';
+import { GraphQLClient } from 'graphql-request';
 import { type Client, createClient } from 'graphql-ws';
 import { type DocumentNode, print } from 'graphql';
 import { config } from '../config-env';
 import type { RefreshSessionMutation } from '../gql/wallet-core/graphql';
 import { AUTH_ERROR_CODES } from '../features/auth/authErrors';
 import { authorizationHeader } from './dev-auth';
+import { type GraphQLRequestError, hasErrorCode, toRequestError } from './errors';
 import {
   accessToken,
   clearSession,
@@ -51,38 +52,6 @@ function httpClient(service: Service): GraphQLClient {
     httpClients.set(service, client);
   }
   return client;
-}
-
-/** A GraphQL error flattened for UI and Redux (serializable). */
-export interface GraphQLRequestError {
-  message: string;
-  code?: string;
-  /** `BAD_USER_INPUT`: the invalid input field (`email`, `password`, `phone`). */
-  field?: string;
-  /** `ACCOUNT_LOCKED`: ISO date-time when the account unlocks. */
-  lockedUntil?: string;
-}
-
-export function toRequestError(error: unknown): GraphQLRequestError {
-  if (error instanceof ClientError) {
-    const first = error.response.errors?.[0];
-    const extensions = first?.extensions;
-    return {
-      // Never `error.message`: graphql-request puts the serialized request (with the variables, e.g. a password) in it.
-      message: first?.message ?? `Request failed with HTTP ${error.response.status}`,
-      code: (extensions?.code as string | undefined) ?? String(error.response.status),
-      ...(typeof extensions?.field === 'string' && { field: extensions.field }),
-      ...(typeof extensions?.lockedUntil === 'string' && { lockedUntil: extensions.lockedUntil }),
-    };
-  }
-  return { message: error instanceof Error ? error.message : String(error) };
-}
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return (
-    error instanceof ClientError &&
-    !!error.response.errors?.some((e) => e.extensions?.code === code)
-  );
 }
 
 // The cookie rotates on every refresh and the old one dies at once, so only one tab at a time may use it.

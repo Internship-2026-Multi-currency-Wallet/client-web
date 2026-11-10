@@ -1,5 +1,5 @@
 import type { PublicSettingsQuery } from '../../gql/wallet-core/graphql';
-import type { GraphQLRequestError } from '../../graphql/client';
+import type { GraphQLRequestError } from '../../graphql/errors';
 
 /**
  * Public settings this client knows about, with their runtime-validated types.
