@@ -15,7 +15,6 @@ const ALLOWED_EXTENSIONS = ['code', 'field', 'lockedUntil'] as const;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Allowed keys with string values only, so the result stays plain serializable data; `undefined` if none is left. */
 function allowedExtensions(extensions: unknown): Record<string, string> | undefined {
   if (!isRecord(extensions)) return undefined;
   const allowed = ALLOWED_EXTENSIONS.flatMap((key) => {
@@ -35,7 +34,6 @@ export function toRequestError(error: unknown): GraphQLRequestError {
       message: first?.message ?? `Request failed with HTTP ${error.response.status}`,
       code: allowed?.code ?? String(error.response.status),
       ...(typeof extensions?.field === 'string' && { field: extensions.field }),
-      // From the parsed response body only, never the request: no variables, and plain data for Redux.
       ...(allowed && { extensions: allowed }),
     };
   }
