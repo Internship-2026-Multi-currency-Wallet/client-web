@@ -6,15 +6,10 @@ export interface GraphQLRequestError {
   code?: string;
   /** `BAD_USER_INPUT`: the invalid input field (`email`, `password`, `phone`). */
   field?: string;
-  /** Allowed `extensions` of the first GraphQL error (see `ALLOWED_EXTENSIONS`); features parse their own keys. */
   extensions?: Record<string, unknown>;
 }
 
-/**
- * The only `extensions` keys that reach the UI and Redux, as documented in the contracts (`schema/`): `code`,
- * `field` (`BAD_USER_INPUT`) and `lockedUntil` (`ACCOUNT_LOCKED`). Anything else the server adds (diagnostics, stack
- * traces, echoed input) is dropped. Add a key here when a feature starts to read it.
- */
+/** Only contract-approved string extensions may enter Redux because server diagnostics can contain sensitive input. */
 const ALLOWED_EXTENSIONS = ['code', 'field', 'lockedUntil'] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -38,7 +33,6 @@ export function toRequestError(error: unknown): GraphQLRequestError {
     return {
       // Never `error.message`: graphql-request puts the serialized request (with the variables, e.g. a password) in it.
       message: first?.message ?? `Request failed with HTTP ${error.response.status}`,
-      // A string code only (validated with the allowlist), else the HTTP status as before.
       code: allowed?.code ?? String(error.response.status),
       ...(typeof extensions?.field === 'string' && { field: extensions.field }),
       // From the parsed response body only, never the request: no variables, and plain data for Redux.
