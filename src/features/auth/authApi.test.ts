@@ -5,6 +5,8 @@ import { signInForTest } from '../../test/auth';
 import { newLog, refreshHandler, unauthenticated, walletCore } from '../../test/graphql-handlers';
 import { loadSession } from '../../graphql/session';
 import { authApi } from './authApi';
+import { describeLoginError, describeRegisterError, formatUnlockTime } from './authErrors';
+import { PASSWORD_HINT } from './validation';
 
 const input = { email: 'demo@example.com', password: 'Str0ng-Pa55word!' };
 
@@ -62,5 +64,69 @@ describe('authApi.logout (no variables)', () => {
 
     expect(result).toHaveProperty('data', true);
     expect(bodies).toEqual([{}]); // one call, no variables
+  });
+});
+
+// The filtered extensions still carry what the forms show.
+describe('authApi errors as the forms see them', () => {
+  const diagnostics = { stacktrace: ['at AuthService'], exception: { name: 'Internal' } };
+
+  it('ACCOUNT_LOCKED still shows the unlock time', async () => {
+    const lockedUntil = '2030-01-01T10:15:00.000Z';
+    server.use(
+      walletCore.mutation('Login', () =>
+        HttpResponse.json({
+          errors: [
+            {
+              message: 'locked',
+              extensions: { code: 'ACCOUNT_LOCKED', lockedUntil, ...diagnostics },
+            },
+          ],
+        }),
+      ),
+    );
+    const store = createStore();
+
+    const result = await store.dispatch(authApi.endpoints.login.initiate(input));
+
+    expect(result.error).toEqual({
+      message: 'locked',
+      code: 'ACCOUNT_LOCKED',
+      extensions: { code: 'ACCOUNT_LOCKED', lockedUntil },
+    });
+    expect(describeLoginError(result.error!)).toBe(
+      `Too many failed attempts. Your account is locked until ${formatUnlockTime(lockedUntil)}.`,
+    );
+  });
+
+  it('BAD_USER_INPUT still names the invalid field', async () => {
+    server.use(
+      walletCore.mutation('Register', () =>
+        HttpResponse.json({
+          errors: [
+            {
+              message: 'dev text',
+              extensions: { code: 'BAD_USER_INPUT', field: 'password', ...diagnostics },
+            },
+          ],
+        }),
+      ),
+    );
+    const store = createStore();
+
+    const result = await store.dispatch(
+      authApi.endpoints.register.initiate({ ...input, phone: null }),
+    );
+
+    expect(result.error).toEqual({
+      message: 'dev text',
+      code: 'BAD_USER_INPUT',
+      field: 'password',
+      extensions: { code: 'BAD_USER_INPUT', field: 'password' },
+    });
+    expect(describeRegisterError(result.error!)).toEqual({
+      fieldErrors: { password: PASSWORD_HINT },
+    });
+    expect(JSON.stringify(store.getState())).not.toContain(input.password);
   });
 });
