@@ -1,4 +1,4 @@
-import type { GraphQLRequestError } from '../../graphql/client';
+import type { GraphQLRequestError } from '../../graphql/errors';
 import { PASSWORD_HINT, PHONE_HINT } from './validation';
 
 /** Same values as `AuthErrorCode` in wallet-core. */
@@ -28,13 +28,19 @@ export function formatUnlockTime(lockedUntil: string | undefined): string | null
   );
 }
 
+/** `ACCOUNT_LOCKED`: ISO date-time when the account unlocks, from `extensions.lockedUntil`. */
+export function lockedUntilOf(error: Partial<GraphQLRequestError>): string | undefined {
+  const value = error.extensions?.lockedUntil;
+  return typeof value === 'string' ? value : undefined;
+}
+
 export function describeLoginError(error: Partial<GraphQLRequestError>): string {
   switch (error.code) {
     case AUTH_ERROR_CODES.INVALID_CREDENTIALS:
       // Generic on purpose: never reveals whether the email exists.
       return 'Invalid email or password.';
     case AUTH_ERROR_CODES.ACCOUNT_LOCKED: {
-      const time = formatUnlockTime(error.lockedUntil);
+      const time = formatUnlockTime(lockedUntilOf(error));
       return time
         ? `Too many failed attempts. Your account is locked until ${time}.`
         : 'Too many failed attempts. Your account is locked. Try again later.';

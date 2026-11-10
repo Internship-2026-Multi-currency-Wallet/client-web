@@ -13,7 +13,8 @@ import {
 } from '../test/graphql-handlers';
 import { createStore } from '../app/store';
 import { authApi } from '../features/auth/authApi';
-import { request, refreshSession, toRequestError } from './client';
+import { request, refreshSession } from './client';
+import { toRequestError } from './errors';
 import { accessToken, clearSession, loadSession } from './session';
 
 describe('request: authorization header', () => {
@@ -242,7 +243,7 @@ describe('request: silent refresh', () => {
 });
 
 describe('toRequestError', () => {
-  it('carries extensions.field and extensions.lockedUntil', async () => {
+  it('carries extensions.field and the raw extensions', async () => {
     server.use(
       walletCore.mutation('Login', () =>
         HttpResponse.json({
@@ -266,7 +267,11 @@ describe('toRequestError', () => {
       message: 'locked',
       code: 'ACCOUNT_LOCKED',
       field: 'x',
-      lockedUntil: '2030-01-01T00:00:00.000Z',
+      extensions: {
+        code: 'ACCOUNT_LOCKED',
+        lockedUntil: '2030-01-01T00:00:00.000Z',
+        field: 'x',
+      },
     });
   });
 
@@ -294,6 +299,27 @@ describe('toRequestError', () => {
       const store = createStore();
       const result = await store.dispatch(authApi.endpoints.login.initiate(input));
       expect(result).toHaveProperty('error.code', '503');
+      expect(JSON.stringify(result)).not.toContain(SECRET);
+      expect(JSON.stringify(store.getState())).not.toContain(SECRET);
+    });
+
+    it('keeps a GraphQL error with extensions serializable and free of the variables', async () => {
+      server.use(
+        walletCore.mutation('Login', () =>
+          HttpResponse.json({
+            errors: [
+              {
+                message: 'locked',
+                extensions: { code: 'ACCOUNT_LOCKED', lockedUntil: '2030-01-01T00:00:00.000Z' },
+              },
+            ],
+          }),
+        ),
+      );
+      const store = createStore();
+      const result = await store.dispatch(authApi.endpoints.login.initiate(input));
+      expect(result).toHaveProperty('error.extensions.lockedUntil', '2030-01-01T00:00:00.000Z');
+      expect(JSON.parse(JSON.stringify(result.error))).toEqual(result.error);
       expect(JSON.stringify(result)).not.toContain(SECRET);
       expect(JSON.stringify(store.getState())).not.toContain(SECRET);
     });
