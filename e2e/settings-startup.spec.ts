@@ -9,6 +9,21 @@ const settings = [
   { key: 'products.enabled', value: ['wallet'] },
 ];
 
+/** The wallet pages need a login (E1-1): start with a stored, still valid session (no wallet-core call needed). */
+async function signedIn(page: Page) {
+  await page.addInitScript(() => {
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    localStorage.setItem(
+      'wallet.session',
+      JSON.stringify({
+        accessToken: 'e2e-access-token',
+        accessTokenExpiresAt: expiresAt,
+        user: { id: '1', email: 'demo@example.com', phone: null },
+      }),
+    );
+  });
+}
+
 /** Answers wallet-core; `publicSettings` calls are counted and answered by `respond`. */
 async function fakeWalletCore(page: Page, respond: (call: number) => 'fail' | 'ok') {
   const counter = { publicSettings: 0 };
@@ -27,6 +42,7 @@ async function fakeWalletCore(page: Page, respond: (call: number) => 'fail' | 'o
 }
 
 test('app renders after one successful PublicSettings request', async ({ page }) => {
+  await signedIn(page);
   const counter = await fakeWalletCore(page, () => 'ok');
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Welcome' })).toBeVisible();
@@ -34,6 +50,7 @@ test('app renders after one successful PublicSettings request', async ({ page })
 });
 
 test('failed initial settings show an error, Retry recovers the app', async ({ page }) => {
+  await signedIn(page);
   const counter = await fakeWalletCore(page, (call) => (call === 1 ? 'fail' : 'ok'));
   await page.goto('/');
   await expect(page.getByText('Could not load the app settings.')).toBeVisible();

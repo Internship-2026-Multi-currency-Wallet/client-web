@@ -5,6 +5,7 @@ import { graphql } from 'msw/graphql';
 import { config } from '../../config-env';
 import type { PublicSettingsQuery } from '../../gql/wallet-core/graphql';
 import { server } from '../../mocks/server';
+import { signInForTest } from '../../test/auth';
 import { renderApp } from '../../test/render';
 import { settingsApi } from './settingsApi';
 import { publicSettingsQuery } from './settings.wallet-core';
@@ -53,6 +54,9 @@ describe('PublicSettings operation', () => {
 });
 
 describe('SettingsGate', () => {
+  // The wallet pages need a login (E1-1); the gate is tested in front of them, so start signed in.
+  beforeEach(() => signInForTest());
+
   it('shows an accessible loading state and no pages until settings arrive', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));

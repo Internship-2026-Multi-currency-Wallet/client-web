@@ -8,8 +8,8 @@ import { config } from './config-env';
 async function enableMocks(): Promise<void> {
   // The literal `import.meta.env` check lets Vite drop the mocks from builds without them.
   if (import.meta.env.VITE_USE_MOCKS !== 'true' || !config.useMocks) return;
-  const { worker } = await import('./mocks/browser');
-  await worker.start({ onUnhandledFrame: 'bypass', quiet: true });
+  const { startMocks } = await import('./mocks/start');
+  await startMocks();
 }
 
 await enableMocks();

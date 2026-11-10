@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react';
 import type { RouteObject } from 'react-router';
+import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
 import { HomePage } from '../pages/HomePage';
+import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { SignUpPage } from '../pages/SignUpPage';
 import { WalletPage } from '../pages/WalletPage';
 
 interface Product extends MenuItem {
@@ -32,8 +35,15 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
       {
         element: <AppLayout menuItems={menuItems} />,
         children: [
-          { index: true, element: <HomePage /> },
-          ...products.map(({ path, element }) => ({ path, element })),
+          {
+            element: <RequireAuth />,
+            children: [
+              { index: true, element: <HomePage /> },
+              ...products.map(({ path, element }) => ({ path, element })),
+            ],
+          },
+          { path: 'login', element: <LoginPage /> },
+          { path: 'signup', element: <SignUpPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },
