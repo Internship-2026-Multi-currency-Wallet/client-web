@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { AppDispatch, RootState } from '../../app/store';
-import { refreshSession } from '../../graphql/client';
+import { refreshSession } from '../../graphql/refresh';
 import { isAccessTokenExpired, loadSession, type SessionUser } from '../../graphql/session';
 
 /** `restoring`: the stored access token has expired and is being renewed; protected UI waits. */

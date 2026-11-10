@@ -1,101 +1,15 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
-import { GraphQLClient } from 'graphql-request';
 import { type Client, createClient } from 'graphql-ws';
 import { type DocumentNode, print } from 'graphql';
 import { config } from '../config-env';
-import type { RefreshSessionMutation } from '../gql/wallet-core/graphql';
-import { AUTH_ERROR_CODES } from '../features/auth/authErrors';
-import { authorizationHeader } from './dev-auth';
 import { type GraphQLRequestError, hasErrorCode, toRequestError } from './errors';
-import {
-  accessToken,
-  clearSession,
-  isAccessTokenExpired,
-  loadSession,
-  saveSession,
-  sessionFromPayload,
-} from './session';
-import { refreshSessionMutation } from './session-refresh.wallet-core';
-
-/** Backends this app talks to. */
-export type Service = 'walletCore' | 'ratesService';
-
-const httpUrls: Record<Service, string> = {
-  walletCore: config.walletCoreUrl,
-  ratesService: config.ratesServiceUrl,
-};
+import { headers, httpClient, type Service } from './http';
+import { refreshSession } from './refresh';
+import { accessToken, isAccessTokenExpired, loadSession } from './session';
 
 const wsUrls: Partial<Record<Service, string>> = {
   ratesService: config.ratesServiceWsUrl,
 };
-
-/** A signed-in session wins; the dev user is only the fallback while nobody is signed in. */
-function headers(): Record<string, string> {
-  const token = accessToken();
-  if (token) return { Authorization: `Bearer ${token}` };
-  const authorization = authorizationHeader(config.devUser);
-  return authorization ? { Authorization: authorization } : {};
-}
-
-const httpClients = new Map<Service, GraphQLClient>();
-
-function httpClient(service: Service): GraphQLClient {
-  let client = httpClients.get(service);
-  if (!client) {
-    // Absolute URL (graphql-request needs one); relative paths resolve against the page.
-    const url = new URL(httpUrls[service], globalThis.location?.href).toString();
-    // Only wallet-core owns the refresh-token cookie; other services get no credentials (CORS stays simple).
-    client = new GraphQLClient(url, {
-      headers,
-      ...(service === 'walletCore' && { credentials: 'include' as const }),
-    });
-    httpClients.set(service, client);
-  }
-  return client;
-}
-
-// The cookie rotates on every refresh and the old one dies at once, so only one tab at a time may use it.
-const REFRESH_LOCK = 'wallet.refresh';
-/** A hung refresh must not hold the lock (and every tab waiting on it) forever. */
-const REFRESH_TIMEOUT_MS = 15_000;
-
-function withRefreshLock<T>(callback: () => Promise<T>): Promise<T> {
-  // No Web Locks outside a secure context (e.g. the dev server opened via a LAN IP): refresh uncoordinated.
-  return navigator.locks ? navigator.locks.request(REFRESH_LOCK, callback) : callback();
-}
-
-let refreshing: Promise<boolean> | null = null;
-
-/**
- * `true` = a valid session exists now; `false` = it is over. Network errors, 5xx and timeouts are thrown and keep
- * the session.
- */
-export function refreshSession(): Promise<boolean> {
-  refreshing ??= refreshWithLock().finally(() => (refreshing = null));
-  return refreshing;
-}
-
-async function refreshWithLock(): Promise<boolean> {
-  const tokenAtStart = accessToken();
-  return withRefreshLock(async () => {
-    // Changed while we waited: another tab refreshed (reuse its token) or somebody logged out / in.
-    if (accessToken() !== tokenAtStart || tokenAtStart === null) return accessToken() !== null;
-    let payload;
-    try {
-      ({ refreshSession: payload } = await httpClient('walletCore').request<RefreshSessionMutation>(
-        { document: refreshSessionMutation, signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS) },
-      ));
-    } catch (error) {
-      if (!hasErrorCode(error, AUTH_ERROR_CODES.INVALID_REFRESH_TOKEN)) throw error;
-      if (accessToken() === tokenAtStart) clearSession();
-      return false;
-    }
-    // A logout or login during the request wins over this answer.
-    if (accessToken() !== tokenAtStart) return accessToken() !== null;
-    saveSession(sessionFromPayload(payload));
-    return true;
-  });
-}
 
 const AUTH_OPERATIONS = new Set(['Register', 'Login', 'RefreshSession', 'Logout']);
 
