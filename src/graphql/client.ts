@@ -12,17 +12,11 @@ const wsUrls: Partial<Record<Service, string>> = {
 };
 
 export interface RequestOptions {
-  /**
-   * Default `true`: on `UNAUTHENTICATED` the session is refreshed and the request repeated once. `false` for calls
-   * that create or end the session themselves (login, register, logout): their failure is the answer.
-   */
+  /** Session-creating and session-ending calls must disable retries because their authentication failure is final. */
   retryOnUnauthenticated?: boolean;
 }
 
-/**
- * Queries and mutations over HTTP (graphql-request). Fully typed by the generated documents.
- * On `UNAUTHENTICATED` the session is refreshed and the request repeated once (see `RequestOptions`).
- */
+/** Queries and mutations over HTTP (graphql-request). Fully typed by the generated documents. */
 export async function request<TResult, TVariables extends Record<string, unknown>>(
   service: Service,
   document: TypedDocumentNode<TResult, TVariables>,

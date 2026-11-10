@@ -29,7 +29,6 @@ export function formatUnlockTime(lockedUntil: string | undefined): string | null
   );
 }
 
-/** `ACCOUNT_LOCKED`: ISO date-time when the account unlocks, from `extensions.lockedUntil`. */
 export function lockedUntilOf(error: Partial<GraphQLRequestError>): string | undefined {
   const value = error.extensions?.lockedUntil;
   return typeof value === 'string' ? value : undefined;
