@@ -1,6 +1,9 @@
 import { AppBar, Box, Button, Chip, Container, Toolbar, Typography } from '@mui/material';
 import { Link as RouterLink, Outlet } from 'react-router';
+import { useAppSelector } from '../app/store';
 import { config } from '../config-env';
+import { selectUser } from '../features/auth/authSlice';
+import { useLogout } from '../features/auth/useLogout';
 
 export interface MenuItem {
   path: string;
@@ -8,6 +11,9 @@ export interface MenuItem {
 }
 
 export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
+  const user = useAppSelector(selectUser);
+  const logout = useLogout();
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
       <AppBar position="static">
@@ -22,6 +28,16 @@ export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
               {label}
             </Button>
           ))}
+          {user && (
+            <>
+              <Typography variant="body2" sx={{ mx: 2 }}>
+                {user.email}
+              </Typography>
+              <Button color="inherit" onClick={() => void logout()}>
+                Log out
+              </Button>
+            </>
+          )}
         </Toolbar>
       </AppBar>
       <Container maxWidth="md" sx={{ py: 4 }}>
