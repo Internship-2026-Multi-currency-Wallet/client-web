@@ -1,4 +1,5 @@
 import type { GraphQLRequestError } from '../../graphql/errors';
+import { INVALID_REFRESH_TOKEN } from '../../graphql/refresh';
 import { PASSWORD_HINT, PHONE_HINT } from './validation';
 
 /** Same values as `AuthErrorCode` in wallet-core. */
@@ -7,7 +8,7 @@ export const AUTH_ERROR_CODES = {
   EMAIL_ALREADY_REGISTERED: 'EMAIL_ALREADY_REGISTERED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
-  INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
+  INVALID_REFRESH_TOKEN,
 } as const;
 
 // Texts are ours: the server `message` is for developers.

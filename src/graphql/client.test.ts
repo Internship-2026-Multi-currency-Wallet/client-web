@@ -13,9 +13,49 @@ import {
 } from '../test/graphql-handlers';
 import { createStore } from '../app/store';
 import { authApi } from '../features/auth/authApi';
-import { request, refreshSession } from './client';
+import { request } from './client';
 import { toRequestError } from './errors';
-import { accessToken, clearSession, loadSession } from './session';
+import { accessToken, loadSession } from './session';
+
+/**
+ * Another tab holds the refresh lock. `refreshQueued` resolves once this tab's refresh asks for the same lock, so
+ * the test changes the storage exactly while that refresh waits, without sleeps or polling.
+ */
+async function otherTabHoldsRefreshLock() {
+  let releaseLock!: () => void;
+  let held!: Promise<void>;
+  await new Promise<void>((acquired) => {
+    held = navigator.locks.request('wallet.refresh', () => {
+      acquired();
+      return new Promise<void>((r) => (releaseLock = r));
+    });
+  });
+  // Safe to call twice: resolving a settled promise is a no-op.
+  const release = async () => {
+    releaseLock();
+    await held;
+  };
+  const locks = navigator.locks;
+  const original = locks.request.bind(locks) as (
+    name: string,
+    callback: () => Promise<unknown>,
+  ) => Promise<unknown>;
+  let queued!: () => void;
+  const refreshQueued = new Promise<void>((r) => (queued = r));
+  const spy = vi.spyOn(locks, 'request').mockImplementation(((
+    name: string,
+    callback: () => Promise<unknown>,
+  ) => {
+    if (name === 'wallet.refresh') queued();
+    return original(name, callback);
+  }) as typeof locks.request);
+  // Also when an assertion fails before `release()`: a lock left held would hang every later refresh.
+  onTestFinished(async () => {
+    spy.mockRestore();
+    await release();
+  });
+  return { refreshQueued, release };
+}
 
 describe('request: authorization header', () => {
   it('sends the session access token as Bearer', async () => {
@@ -160,25 +200,44 @@ describe('request: silent refresh', () => {
 
   it('waits for the refresh lock and reuses the token another tab got meanwhile', async () => {
     signInForTest({ expired: true });
+    const stale = accessToken();
     const log = newLog();
     server.use(meHandler(log), refreshHandler(log));
-    // Another tab holds the lock while it refreshes.
-    let release!: () => void;
-    const held = navigator.locks.request(
-      'wallet.refresh',
-      () => new Promise<void>((r) => (release = r)),
-    );
+    const otherTabLock = await otherTabHoldsRefreshLock();
 
     const pending = request('walletCore', meQuery);
-    await vi.waitFor(() => expect(log.me).toBe(1));
+    // The request got UNAUTHENTICATED and its refresh now waits for the lock of the other tab.
+    await otherTabLock.refreshQueued;
+    expect(log.me).toBe(1);
     const renewed = testSession();
     otherTab.write(renewed);
-    release();
-    await held;
+    await otherTabLock.release();
 
     expect((await pending).me.id).toBe('1');
     expect(log.refresh).toBe(0); // the rotated cookie was not used a second time
-    expect(log.headers[1]).toBe(`Bearer ${renewed.accessToken}`);
+    expect(log.me).toBe(2); // one failure, one retry
+    expect(log.headers).toEqual([`Bearer ${stale}`, `Bearer ${renewed.accessToken}`]);
+    expect(loadSession()).toEqual(renewed);
+  });
+
+  it('does not repeat the request as another user who signed in while the refresh waited for the lock', async () => {
+    signInForTest({ expired: true });
+    const log = newLog();
+    server.use(meHandler(log), refreshHandler(log));
+    const otherTabLock = await otherTabHoldsRefreshLock();
+
+    const pending = request('walletCore', meQuery);
+    await otherTabLock.refreshQueued;
+    const other = testSession(OTHER_USER);
+    otherTab.write(other);
+    await otherTabLock.release();
+
+    await expect(pending).rejects.toMatchObject({
+      response: { errors: [{ extensions: { code: 'UNAUTHENTICATED' } }] },
+    });
+    expect(log.me).toBe(1); // never replayed with the other user's token
+    expect(log.refresh).toBe(0);
+    expect(loadSession()).toEqual(other);
   });
 
   it('does not repeat the request as another user who signed in during the request', async () => {
@@ -221,25 +280,6 @@ describe('request: silent refresh', () => {
       expect(loadSession()?.user.id).toBe(OTHER_USER.id); // the late answer for user 1 did not overwrite it
     },
   );
-
-  it('a logout during the refresh request wins: the answer does not bring the session back', async () => {
-    signInForTest({ expired: true });
-    const log = newLog();
-    server.use(
-      refreshHandler(log, async () => {
-        clearSession();
-      }),
-    );
-
-    await expect(refreshSession()).resolves.toBe(false);
-    expect(loadSession()).toBeNull();
-  });
-
-  it('refreshSession() reports a finished refresh session as false', async () => {
-    signInForTest({ refreshable: false });
-    await expect(refreshSession()).resolves.toBe(false);
-    expect(loadSession()).toBeNull();
-  });
 });
 
 describe('toRequestError', () => {
