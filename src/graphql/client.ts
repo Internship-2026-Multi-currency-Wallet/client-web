@@ -1,6 +1,6 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
 import { type Client, createClient } from 'graphql-ws';
-import { type DocumentNode, print } from 'graphql';
+import { print } from 'graphql';
 import { config } from '../config-env';
 import { type GraphQLRequestError, hasErrorCode, toRequestError } from './errors';
 import { headers, httpClient, type Service } from './http';
@@ -11,23 +11,24 @@ const wsUrls: Partial<Record<Service, string>> = {
   ratesService: config.ratesServiceWsUrl,
 };
 
-const AUTH_OPERATIONS = new Set(['Register', 'Login', 'RefreshSession', 'Logout']);
-
-const isAuthOperation = (document: DocumentNode) =>
-  document.definitions.some(
-    (definition) =>
-      definition.kind === 'OperationDefinition' &&
-      AUTH_OPERATIONS.has(definition.name?.value ?? ''),
-  );
+export interface RequestOptions {
+  /**
+   * Default `true`: on `UNAUTHENTICATED` the session is refreshed and the request repeated once. `false` for calls
+   * that create or end the session themselves (login, register, logout): their failure is the answer.
+   */
+  retryOnUnauthenticated?: boolean;
+}
 
 /**
  * Queries and mutations over HTTP (graphql-request). Fully typed by the generated documents.
- * On `UNAUTHENTICATED` the session is refreshed and the request repeated once.
+ * On `UNAUTHENTICATED` the session is refreshed and the request repeated once (see `RequestOptions`).
  */
 export async function request<TResult, TVariables extends Record<string, unknown>>(
   service: Service,
   document: TypedDocumentNode<TResult, TVariables>,
-  ...[variables]: TVariables extends Record<string, never> ? [] : [TVariables]
+  ...[variables, options]: TVariables extends Record<string, never>
+    ? [variables?: TVariables, options?: RequestOptions]
+    : [variables: TVariables, options?: RequestOptions]
 ): Promise<TResult> {
   const send = () =>
     httpClient(service).request<TResult>({
@@ -38,7 +39,11 @@ export async function request<TResult, TVariables extends Record<string, unknown
   try {
     return await send();
   } catch (error) {
-    if (!used || !hasErrorCode(error, 'UNAUTHENTICATED') || isAuthOperation(document)) {
+    if (
+      !used ||
+      !hasErrorCode(error, 'UNAUTHENTICATED') ||
+      options?.retryOnUnauthenticated === false
+    ) {
       throw error;
     }
     // Another request may have refreshed already.

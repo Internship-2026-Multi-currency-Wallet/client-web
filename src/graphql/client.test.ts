@@ -1,6 +1,9 @@
+import { type DocumentNode, Kind } from 'graphql';
 import { delay, HttpResponse } from 'msw';
+import type { LoginMutation, MeQuery } from '../gql/wallet-core/graphql';
 import { meQuery } from '../features/system/system.wallet-core';
 import { loginMutation } from '../features/auth/auth.wallet-core';
+import { userIdFromBearer } from '../mocks/auth-handlers';
 import { server } from '../mocks/server';
 import { OTHER_USER, otherTab, signInForTest, testSession } from '../test/auth';
 import {
@@ -56,6 +59,41 @@ async function otherTabHoldsRefreshLock() {
   });
   return { refreshQueued, release };
 }
+
+/** The same document under another operation name. */
+function renamed<T extends DocumentNode>(document: T, name: string): T {
+  return {
+    ...document,
+    definitions: document.definitions.map((definition) =>
+      definition.kind === Kind.OPERATION_DEFINITION
+        ? { ...definition, name: { kind: Kind.NAME, value: name } }
+        : definition,
+    ),
+  };
+}
+
+describe('request: typing', () => {
+  it('keeps results and variables typed by the document (checked by tsc, never run)', () => {
+    const typed = async () => {
+      expectTypeOf(await request('walletCore', meQuery)).toEqualTypeOf<MeQuery>();
+      expectTypeOf(
+        await request('walletCore', meQuery, undefined, { retryOnUnauthenticated: false }),
+      ).toEqualTypeOf<MeQuery>();
+      expectTypeOf(
+        await request('walletCore', loginMutation, { input: { email: 'a@b.co', password: 'x' } }),
+      ).toEqualTypeOf<LoginMutation>();
+      // @ts-expect-error the variables of Login are required
+      await request('walletCore', loginMutation);
+      // @ts-expect-error the variables must match the document
+      await request('walletCore', loginMutation, { input: { email: 1 } });
+      // @ts-expect-error Me has no variables
+      await request('walletCore', meQuery, { id: '1' });
+      // @ts-expect-error unknown option
+      await request('walletCore', meQuery, undefined, { retry: false });
+    };
+    expect(typed).toBeTypeOf('function');
+  });
+});
 
 describe('request: authorization header', () => {
   it('sends the session access token as Bearer', async () => {
@@ -185,17 +223,77 @@ describe('request: silent refresh', () => {
     expect(log.refresh).toBe(0);
   });
 
-  it('never refreshes because of an auth operation', async () => {
+  it('never refreshes when the call opts out (retryOnUnauthenticated: false)', async () => {
     signInForTest({ expired: true });
     const log = newLog();
+    let logins = 0;
     server.use(
-      walletCore.mutation('Login', () => unauthenticated()),
+      walletCore.mutation('Login', () => {
+        logins += 1;
+        return unauthenticated();
+      }),
       refreshHandler(log),
     );
     await expect(
-      request('walletCore', loginMutation, { input: { email: 'a@b.co', password: 'x' } }),
+      request(
+        'walletCore',
+        loginMutation,
+        { input: { email: 'a@b.co', password: 'x' } },
+        { retryOnUnauthenticated: false },
+      ),
     ).rejects.toBeDefined();
     expect(log.refresh).toBe(0);
+    expect(logins).toBe(1); // not repeated
+  });
+
+  it('opts out for an operation without variables too', async () => {
+    signInForTest({ expired: true });
+    const log = newLog();
+    server.use(meHandler(log), refreshHandler(log));
+    await expect(
+      request('walletCore', meQuery, undefined, { retryOnUnauthenticated: false }),
+    ).rejects.toMatchObject({
+      response: { errors: [{ extensions: { code: 'UNAUTHENTICATED' } }] },
+    });
+    expect(log.refresh).toBe(0);
+    expect(log.me).toBe(1);
+  });
+
+  it('the operation name does not decide the policy', async () => {
+    signInForTest({ expired: true });
+    const log = newLog();
+    let signIns = 0;
+    server.use(
+      // `Me` named like the old auth operation: still refreshed and repeated by default.
+      walletCore.query('Login', ({ request }) => {
+        log.me += 1;
+        const id = userIdFromBearer(request.headers.get('authorization'));
+        return id
+          ? HttpResponse.json({ data: { me: { id, permissions: [], strategy: 'jwt' } } })
+          : unauthenticated();
+      }),
+      // `Login` renamed: still not repeated, because the caller said so.
+      walletCore.mutation('SignIn', () => {
+        signIns += 1;
+        return unauthenticated();
+      }),
+      refreshHandler(log),
+    );
+
+    expect((await request('walletCore', renamed(meQuery, 'Login'))).me.id).toBe('1');
+    expect(log.me).toBe(2);
+    expect(log.refresh).toBe(1);
+
+    await expect(
+      request(
+        'walletCore',
+        renamed(loginMutation, 'SignIn'),
+        { input: { email: 'a@b.co', password: 'x' } },
+        { retryOnUnauthenticated: false },
+      ),
+    ).rejects.toBeDefined();
+    expect(signIns).toBe(1);
+    expect(log.refresh).toBe(1); // no second refresh
   });
 
   it('waits for the refresh lock and reuses the token another tab got meanwhile', async () => {
