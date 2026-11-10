@@ -381,7 +381,7 @@ describe('request: silent refresh', () => {
 });
 
 describe('toRequestError', () => {
-  it('carries extensions.field and the raw extensions', async () => {
+  it('carries extensions.field and the allowed extensions', async () => {
     server.use(
       walletCore.mutation('Login', () =>
         HttpResponse.json({
@@ -439,6 +439,66 @@ describe('toRequestError', () => {
       expect(result).toHaveProperty('error.code', '503');
       expect(JSON.stringify(result)).not.toContain(SECRET);
       expect(JSON.stringify(store.getState())).not.toContain(SECRET);
+    });
+
+    it('drops server diagnostics and echoed input from the RTK Query error and the Redux state', async () => {
+      server.use(
+        walletCore.mutation('Login', ({ variables }) =>
+          HttpResponse.json({
+            errors: [
+              {
+                message: 'Invalid email or password',
+                extensions: {
+                  code: 'INVALID_CREDENTIALS',
+                  stacktrace: ['Error: Invalid credentials', '    at AuthService.login'],
+                  exception: { name: 'UnauthorizedException', variables },
+                  input: variables,
+                },
+              },
+            ],
+          }),
+        ),
+      );
+      const store = createStore();
+
+      const result = await store.dispatch(authApi.endpoints.login.initiate(input));
+
+      expect(result.error).toEqual({
+        message: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS',
+        extensions: { code: 'INVALID_CREDENTIALS' },
+      });
+      for (const leaked of [SECRET, 'stacktrace', 'AuthService', 'exception']) {
+        expect(JSON.stringify(result)).not.toContain(leaked);
+        expect(JSON.stringify(store.getState())).not.toContain(leaked);
+      }
+    });
+
+    it('keeps a malformed non-string code with diagnostics out of the RTK Query error and the Redux state', async () => {
+      server.use(
+        walletCore.mutation('Login', ({ variables }) =>
+          HttpResponse.json(
+            {
+              errors: [
+                {
+                  message: 'Bad request',
+                  extensions: { code: { stacktrace: ['at AuthService.login'], input: variables } },
+                },
+              ],
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+      const store = createStore();
+
+      const result = await store.dispatch(authApi.endpoints.login.initiate(input));
+
+      expect(result.error).toEqual({ message: 'Bad request', code: '400' });
+      for (const leaked of [SECRET, 'stacktrace', 'AuthService']) {
+        expect(JSON.stringify(result)).not.toContain(leaked);
+        expect(JSON.stringify(store.getState())).not.toContain(leaked);
+      }
     });
 
     it('keeps a GraphQL error with extensions serializable and free of the variables', async () => {

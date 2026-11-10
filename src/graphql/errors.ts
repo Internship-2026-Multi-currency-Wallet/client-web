@@ -6,24 +6,43 @@ export interface GraphQLRequestError {
   code?: string;
   /** `BAD_USER_INPUT`: the invalid input field (`email`, `password`, `phone`). */
   field?: string;
-  /** `extensions` of the first GraphQL error, as sent by the server; features parse their own keys. */
+  /** Allowed `extensions` of the first GraphQL error (see `ALLOWED_EXTENSIONS`); features parse their own keys. */
   extensions?: Record<string, unknown>;
 }
 
+/**
+ * The only `extensions` keys that reach the UI and Redux, as documented in the contracts (`schema/`): `code`,
+ * `field` (`BAD_USER_INPUT`) and `lockedUntil` (`ACCOUNT_LOCKED`). Anything else the server adds (diagnostics, stack
+ * traces, echoed input) is dropped. Add a key here when a feature starts to read it.
+ */
+const ALLOWED_EXTENSIONS = ['code', 'field', 'lockedUntil'] as const;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Allowed keys with string values only, so the result stays plain serializable data; `undefined` if none is left. */
+function allowedExtensions(extensions: unknown): Record<string, string> | undefined {
+  if (!isRecord(extensions)) return undefined;
+  const allowed = ALLOWED_EXTENSIONS.flatMap((key) => {
+    const value = extensions[key];
+    return typeof value === 'string' ? [[key, value] as const] : [];
+  });
+  return allowed.length > 0 ? Object.fromEntries(allowed) : undefined;
+}
 
 export function toRequestError(error: unknown): GraphQLRequestError {
   if (error instanceof ClientError) {
     const first = error.response.errors?.[0];
     const extensions = first?.extensions;
+    const allowed = allowedExtensions(extensions);
     return {
       // Never `error.message`: graphql-request puts the serialized request (with the variables, e.g. a password) in it.
       message: first?.message ?? `Request failed with HTTP ${error.response.status}`,
-      code: (extensions?.code as string | undefined) ?? String(error.response.status),
+      // A string code only (validated with the allowlist), else the HTTP status as before.
+      code: allowed?.code ?? String(error.response.status),
       ...(typeof extensions?.field === 'string' && { field: extensions.field }),
-      // A copy of the parsed JSON body, never the request: no variables, and plain data for Redux.
-      ...(isRecord(extensions) && { extensions: { ...extensions } }),
+      // From the parsed response body only, never the request: no variables, and plain data for Redux.
+      ...(allowed && { extensions: allowed }),
     };
   }
   return { message: error instanceof Error ? error.message : String(error) };
