@@ -31,7 +31,7 @@ describe('AppRouter', () => {
   it('shows an enabled product: its page and its menu item', async () => {
     enableProducts(['wallet']);
     renderApp('/wallet');
-    // level 1: the page heading, not the app name in the header.
+    // level 1: the page heading, not the logo in the header.
     expect(await screen.findByRole('heading', { level: 1, name: 'Wallet' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Wallet' })).toHaveAttribute('href', '/wallet');
   });
