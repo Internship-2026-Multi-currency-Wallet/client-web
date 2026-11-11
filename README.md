@@ -191,6 +191,12 @@ and `brand.siteName`; tests assert against `brand.siteName`, not a literal name.
 - Page titles look like `Login · <siteName>`; set them with `usePageTitle`.
 - A `no-restricted-syntax` rule in `eslint.config.js` fails lint (and so `npm run build`) on hex colours and product
   names (Demo Wallet, Kvitka Bank, Wisła Transfer) outside `src/brand/**`.
+  It is context-based and fast. A whole string that is a short hex (`'#fff'`) counts as a colour; a real id like that
+  needs `// eslint-disable-next-line no-restricted-syntax -- reason`.
+- A type-aware rule (`eslint-rules/no-style-colour.js`, config `eslint.types.config.js`) runs in `npm run lint:types`,
+  not in `npm run build`. It flags colours (hex, `rgb()`, named, ...) in typed style positions: `sx`, `styled`, theme
+  options, SVG `fill`/`stroke`. Limitations: colours built at runtime and colours outside typed style positions (for
+  example a plain `string` variable) are not caught.
 - On a merge conflict in a brand file, keep the client's version.
 
 ## Docker

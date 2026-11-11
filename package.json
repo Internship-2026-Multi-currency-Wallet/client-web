@@ -13,6 +13,7 @@
     "build": "npm run lint && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:types": "eslint -c eslint.types.config.js .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
