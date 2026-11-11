@@ -52,7 +52,7 @@ built one at a time; give Docker at least 4 GiB if you run the whole stack. Deta
 | Script                              | What it does                                                                                      |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `npm run dev` / `npm run dev:mocks` | Dev server on :5173 (real backends / mocks)                                                       |
-| `npm run build` / `npm run preview` | Type check + production build to `dist/` / serve it                                               |
+| `npm run build` / `npm run preview` | Lint + type check + production build to `dist/` / serve it                                        |
 | `npm run lint` / `npm run format`   | ESLint / Prettier                                                                                 |
 | `npm run typecheck`                 | `tsc -b`                                                                                          |
 | `npm test`                          | Unit and component tests (Vitest + RTL, against MSW)                                              |
@@ -174,6 +174,24 @@ e2e/             Playwright smoke tests
 ```
 
 Shared files (`app/store.ts`, `app/routes.tsx`, layout/navigation) change only in small, dedicated PRs.
+
+## Branding
+
+Every client's look comes from three files; each client branch has its own versions of them.
+
+- `src/brand/brand.ts` — `siteName`, `palette`, `fontFamily`, `logoUrl`, `faviconUrl`.
+- `public/brand/logo.svg` — the logo (`brand.logoUrl`).
+- `public/brand/favicon.svg` — the favicon (`brand.faviconUrl`).
+
+Brand values live only there: no hex colours or product names anywhere else. Components use the theme, `<Logo />`
+and `brand.siteName`; tests assert against `brand.siteName`, not a literal name.
+
+- The tab title, favicon link and `/manifest.webmanifest` are generated from `brand.ts` by the Vite plugin in
+  `vite.config.ts`, so `index.html` has no hard-coded name.
+- Page titles look like `Login · <siteName>`; set them with `usePageTitle`.
+- A `no-restricted-syntax` rule in `eslint.config.js` fails lint (and so `npm run build`) on hex colours and product
+  names (Demo Wallet, Kvitka Bank, Wisła Transfer) outside `src/brand/**`.
+- On a merge conflict in a brand file, keep the client's version.
 
 ## Docker
 
