@@ -89,8 +89,24 @@ export default {
       return false;
     }
 
+    const WRAPPERS = new Set([
+      'LogicalExpression',
+      'TSAsExpression',
+      'TSNonNullExpression',
+      'TSSatisfiesExpression',
+    ]);
+
     function inColourAttribute(node) {
-      const attr = node.parent.type === 'JSXExpressionContainer' ? node.parent.parent : node.parent;
+      let child = node;
+      let parent = node.parent;
+      while (
+        WRAPPERS.has(parent.type) ||
+        (parent.type === 'ConditionalExpression' && parent.test !== child)
+      ) {
+        child = parent;
+        parent = parent.parent;
+      }
+      const attr = parent.type === 'JSXExpressionContainer' ? parent.parent : parent;
       return attr.type === 'JSXAttribute' && COLOUR_ATTRIBUTES.has(source.getText(attr.name));
     }
 

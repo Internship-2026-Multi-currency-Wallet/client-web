@@ -53,6 +53,19 @@ describe('brand lint guard', { timeout: 30_000 }, () => {
     expect(await violations(code, COMPONENT)).toHaveLength(1);
   });
 
+  it.each([SHORT_HEX, HEX])(
+    'reports "%s !important" as a whole string exactly once',
+    async (hex) => {
+      const code = `export const A = () => <b sx={{ color: '${hex} !important' }} />;`;
+      expect(await violations(code, COMPONENT)).toHaveLength(1);
+    },
+  );
+
+  it('does not flag hashtag-like text followed by !important', async () => {
+    const code = `const a = 'Order #1234 !important';`;
+    expect(await violations(code, COMPONENT)).toHaveLength(0);
+  });
+
   describe('product names', () => {
     it.each(NAMES)('flags "%s" in string, template and JSX text', async (name) => {
       for (const code of [

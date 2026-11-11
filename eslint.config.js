@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint';
 // Match CSS contexts to avoid treating prose hashtags and order IDs as colours.
 const HEX = String.raw`#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b`;
 const CSS_BEFORE = String.raw`[:(]\s*(?:(?:[\d.]+[a-z%]*|inset|solid|dashed|dotted)\s+)*|\([^)]*,\s*|\b(?:[\d.]+(?:px|rem|em)|solid|dashed|dotted)\s+`;
-const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*${HEX}\s*$/i`;
+const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*${HEX}(?:\s*!important)?\s*$/i`;
 const HEX_MESSAGE = 'Hex colours live only in src/brand/brand.ts; use the theme';
 const NAMES = String.raw`/demo\s+wallet|kvitka\s+bank|wis[lł]a\s+transfer/i`;
 const restrict = (regex, message) => [
