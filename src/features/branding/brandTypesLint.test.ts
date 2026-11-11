@@ -69,6 +69,23 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
     expect(found.map((m) => m.message)).toHaveLength(2);
   });
 
+  describe('flags colours behind conditional and fallback values in colour attributes', () => {
+    const svg = (attr: string) =>
+      `declare const active: boolean; declare const cond: string | undefined; export const A = () => <svg><path ${attr} /></svg>;`;
+    it.each([
+      ['both branches of a conditional', `fill={active ? '${RED}' : '${BLUE}'}`, 2],
+      ['a logical and', `stroke={active && '${RED}'}`, 1],
+      ['a nullish fallback', `fill={cond ?? '${RED}'}`, 1],
+      [
+        'a type assertion around a conditional',
+        `fill={(active ? '${RED}' : '${BLUE}') as string}`,
+        2,
+      ],
+    ])('%s', async (_name, attr, count) => {
+      expect(await colours(svg(attr))).toHaveLength(count);
+    });
+  });
+
   describe('leaves other strings alone', () => {
     const cases: Record<string, string> = {
       'order id': `export const a = 'Order #1234';`,
@@ -89,6 +106,9 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       'switch case inside a styled callback': `export const S = styled('div')<{ variant: '${RED}' | '${BLUE}' }>(({ variant }) => {
         switch (variant) { case '${RED}': return { display: 'block' }; default: return { display: 'none' }; }
       });`,
+      'non-colour conditional in a colour attribute': `declare const active: boolean; export const A = () => <svg><path fill={active ? 'currentColor' : 'none'} /></svg>;`,
+      'theme value in a colour attribute': `declare const theme: { palette: { primary: { main: string } } }; export const A = () => <svg><path fill={theme.palette.primary.main} /></svg>;`,
+      'comparison in the test of a conditional': `declare const mode: string; export const A = () => <svg><path fill={mode === '${RED}' ? 'x' : 'y'} /></svg>;`,
       'non-colour in sx': typedSx(`{ display: 'flex', p: 2 }`),
     };
     it.each(Object.entries(cases))('%s', async (_name, code) => {
