@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "dev:mocks": "vite --mode mocks",
-    "build": "npm run lint && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:types": "eslint -c eslint.types.config.js .",

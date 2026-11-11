@@ -52,7 +52,7 @@ built one at a time; give Docker at least 4 GiB if you run the whole stack. Deta
 | Script                              | What it does                                                                                      |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `npm run dev` / `npm run dev:mocks` | Dev server on :5173 (real backends / mocks)                                                       |
-| `npm run build` / `npm run preview` | Lint + type check + production build to `dist/` / serve it                                        |
+| `npm run build` / `npm run preview` | Type check + production build to `dist/` / serve it                                               |
 | `npm run lint` / `npm run format`   | ESLint / Prettier                                                                                 |
 | `npm run typecheck`                 | `tsc -b`                                                                                          |
 | `npm test`                          | Unit and component tests (Vitest + RTL, against MSW)                                              |
@@ -189,7 +189,7 @@ and `brand.siteName`; tests assert against `brand.siteName`, not a literal name.
 - The tab title, favicon link and `/manifest.webmanifest` are generated from `brand.ts` by the Vite plugin in
   `vite.config.ts`, so `index.html` has no hard-coded name.
 - Page titles look like `Login · <siteName>`; set them with `usePageTitle`.
-- A `no-restricted-syntax` rule in `eslint.config.js` fails lint (and so `npm run build`) on hex colours and product
+- A `no-restricted-syntax` rule in `eslint.config.js` fails `npm run lint` on hex colours and product
   names (Demo Wallet, Kvitka Bank, Wisła Transfer) outside `src/brand/**`.
   It is context-based and fast. A whole string that is a short hex (`'#fff'`) counts as a colour; a real id like that
   needs `// eslint-disable-next-line no-restricted-syntax -- reason`.
