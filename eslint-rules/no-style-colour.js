@@ -109,7 +109,6 @@ export default {
       return false;
     }
 
-    // A key whose type lists string literals, none of them this word (gridArea), takes no colour names.
     function literalsExcludeWord(node, text) {
       const literals = [];
       const collect = (type) =>
@@ -121,8 +120,14 @@ export default {
       return literals.length > 0 && !literals.some((v) => v.toLowerCase() === text.toLowerCase());
     }
 
+    const isComparison = ({ parent }) =>
+      parent.type === 'TSLiteralType' ||
+      (parent.type === 'BinaryExpression' && /^[!=]==?$/.test(parent.operator)) ||
+      (parent.type === 'SwitchCase' && parent.test !== null);
+
     function check(node, text) {
-      if (!isColour(text) || !inStylePosition(node)) return;
+      if (!isColour(text) || (node.type === 'Literal' && isComparison(node))) return;
+      if (!inStylePosition(node)) return;
       const onlyNamed = !HEX.test(text) && !FUNCTION.test(text);
       if (
         onlyNamed &&

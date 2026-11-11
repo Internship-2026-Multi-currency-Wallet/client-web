@@ -7,6 +7,7 @@ const HSL = 'hsl' + '(10, 50%, 50%)';
 const OKLCH = 'oklch' + '(0.5 0.1 200)';
 const RED = 'red';
 const TOMATO = 'tomato';
+const BLUE = 'blue';
 const IMPORTS = `import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';\nimport type { SxProps } from '@mui/material/styles';\n`;
 
@@ -23,6 +24,9 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
   }
   const sx = (value: string) => `export const A = () => <Box sx={${value}} />;`;
   const typedSx = (value: string) => `const s: SxProps = ${value}; export default s;`;
+
+  const variantStyled = (style: string) =>
+    `export const S = styled('div')<{ variant: '${RED}' | '${BLUE}' }>(({ variant }) => (${style}));`;
 
   describe('flags colours in style positions', () => {
     const cases: Record<string, string> = {
@@ -57,6 +61,14 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
     });
   });
 
+  it('flags the colour values but not the compared string in a styled callback', async () => {
+    const found = await colours(
+      variantStyled(`{ color: variant === '${RED}' ? '${HEX}' : '${BLUE}' }`),
+    );
+    expect(found.map((m) => m.column)).toHaveLength(2);
+    expect(found.map((m) => m.message)).toHaveLength(2);
+  });
+
   describe('leaves other strings alone', () => {
     const cases: Record<string, string> = {
       'order id': `export const a = 'Order #1234';`,
@@ -71,6 +83,12 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       'transparent in sx': typedSx(`{ bgcolor: 'transparent' }`),
       'currentColor in styled': "export const S = styled('div')`color: currentColor;`;",
       'custom identifier that spells a colour': `import type { CSSProperties } from 'react'; export const s: CSSProperties = { gridArea: '${RED}' };`,
+      'comparison inside a styled callback': variantStyled(
+        `{ display: variant === '${RED}' ? 'block' : 'none' }`,
+      ),
+      'switch case inside a styled callback': `export const S = styled('div')<{ variant: '${RED}' | '${BLUE}' }>(({ variant }) => {
+        switch (variant) { case '${RED}': return { display: 'block' }; default: return { display: 'none' }; }
+      });`,
       'non-colour in sx': typedSx(`{ display: 'flex', p: 2 }`),
     };
     it.each(Object.entries(cases))('%s', async (_name, code) => {
