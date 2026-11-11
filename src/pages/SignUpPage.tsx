@@ -2,12 +2,14 @@ import { Card, CardContent, Link, Stack, Typography } from '@mui/material';
 import { useEffect, useRef } from 'react';
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../app/store';
+import { usePageTitle } from '../features/branding/usePageTitle';
 import { useRegisterMutation } from '../features/auth/authApi';
 import { describeRegisterError } from '../features/auth/authErrors';
 import { selectUser } from '../features/auth/authSlice';
 import { SignUpForm } from '../features/auth/SignUpForm';
 
 export function SignUpPage() {
+  usePageTitle('Sign up');
   const [register, { isLoading, error, reset }] = useRegisterMutation();
   const user = useAppSelector(selectUser);
   const navigate = useNavigate();
