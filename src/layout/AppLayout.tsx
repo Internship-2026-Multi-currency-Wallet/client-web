@@ -4,6 +4,7 @@ import { useAppSelector } from '../app/store';
 import { config } from '../config-env';
 import { selectUser } from '../features/auth/authSlice';
 import { useLogout } from '../features/auth/useLogout';
+import { Logo } from '../features/branding/Logo';
 
 export interface MenuItem {
   path: string;
@@ -16,11 +17,11 @@ export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      <AppBar position="static">
+      <AppBar position="static" color="inherit">
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Wallet
-          </Typography>
+          <Box sx={{ flexGrow: 1 }}>
+            <Logo />
+          </Box>
           {config.useMocks && <Chip label="mocks" color="warning" size="small" sx={{ mr: 1 }} />}
           <Chip label={`client: ${config.client}`} size="small" sx={{ mr: 2, color: 'inherit' }} />
           {menuItems.map(({ path, label }) => (
