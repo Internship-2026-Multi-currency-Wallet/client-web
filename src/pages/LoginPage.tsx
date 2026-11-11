@@ -2,6 +2,7 @@ import { Alert, Card, CardContent, Link, Stack, Typography } from '@mui/material
 import { useEffect, useRef } from 'react';
 import { Link as RouterLink, Navigate, useLocation } from 'react-router';
 import { useAppSelector } from '../app/store';
+import { usePageTitle } from '../features/branding/usePageTitle';
 import { selectAuthStatus, selectUser } from '../features/auth/authSlice';
 import { describeLoginError } from '../features/auth/authErrors';
 import { useLoginMutation } from '../features/auth/authApi';
@@ -20,6 +21,7 @@ function safeTarget(from: string | undefined): string {
 }
 
 export function LoginPage() {
+  usePageTitle('Login');
   const [login, { isLoading, error, reset }] = useLoginMutation();
   const user = useAppSelector(selectUser);
   const restoring = useAppSelector(selectAuthStatus) === 'restoring';

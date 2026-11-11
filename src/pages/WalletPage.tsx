@@ -1,7 +1,9 @@
 import { Stack, Typography } from '@mui/material';
+import { usePageTitle } from '../features/branding/usePageTitle';
 
 /** Placeholder: gives the `wallet` product a route until its screens are built. */
 export function WalletPage() {
+  usePageTitle('Wallet');
   return (
     <Stack spacing={2}>
       <Typography variant="h4" component="h1">

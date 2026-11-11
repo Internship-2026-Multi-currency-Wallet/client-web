@@ -1,8 +1,10 @@
 import { Alert, Card, CardContent, Stack, Typography } from '@mui/material';
+import { usePageTitle } from '../features/branding/usePageTitle';
 import { useMeQuery, useWalletCoreHealthQuery } from '../features/system/systemApi';
 import { ServerTime } from '../features/server-time/ServerTime';
 
 export function HomePage() {
+  usePageTitle('Home');
   const health = useWalletCoreHealthQuery();
   const me = useMeQuery();
 
