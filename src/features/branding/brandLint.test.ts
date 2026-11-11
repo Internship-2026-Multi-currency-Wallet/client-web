@@ -46,6 +46,13 @@ describe('brand lint guard', { timeout: 30_000 }, () => {
     });
   });
 
+  it.each([
+    ['style key', `const a = { background: '${SHORT_HEX}' };`],
+    ['JSX attribute', `export const A = () => <b color="${SHORT_HEX}" />;`],
+  ])('reports a short hex in a %s exactly once', async (_name, code) => {
+    expect(await violations(code, COMPONENT)).toHaveLength(1);
+  });
+
   describe('product names', () => {
     it.each(NAMES)('flags "%s" in string, template and JSX text', async (name) => {
       for (const code of [

@@ -10,14 +10,7 @@ import tseslint from 'typescript-eslint';
 const HEX = String.raw`#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b`;
 const CSS_BEFORE = String.raw`[:(]\s*(?:(?:[\d.]+[a-z%]*|inset|solid|dashed|dotted)\s+)*|\([^)]*,\s*|\b(?:[\d.]+(?:px|rem|em)|solid|dashed|dotted)\s+`;
 const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*${HEX}\s*$/i`;
-const HEX_VALUE = String.raw`/^\s*${HEX}\s*$/i`;
-const STYLE_KEY = String.raw`/colou?r|background|bg|border|fill|stroke|shadow|outline|main|light|dark|contrastText/i`;
 const HEX_MESSAGE = 'Hex colours live only in src/brand/brand.ts; use the theme';
-const HEX_SELECTORS = [
-  `Property[key.name=${STYLE_KEY}] > Literal[value=${HEX_VALUE}]`,
-  `Property[key.value=${STYLE_KEY}] > Literal[value=${HEX_VALUE}]`,
-  `JSXAttribute[name.name=${STYLE_KEY}] > Literal[value=${HEX_VALUE}]`,
-];
 const NAMES = String.raw`/demo\s+wallet|kvitka\s+bank|wis[lł]a\s+transfer/i`;
 const restrict = (regex, message) => [
   { selector: `Literal[value=${regex}]`, message },
@@ -45,7 +38,6 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         ...restrict(HEX_TEXT, HEX_MESSAGE),
-        ...HEX_SELECTORS.map((selector) => ({ selector, message: HEX_MESSAGE })),
         ...restrict(NAMES, 'Product names live only in src/brand/brand.ts; use brand.siteName'),
       ],
     },
