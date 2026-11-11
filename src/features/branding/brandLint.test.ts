@@ -25,8 +25,14 @@ describe('brand lint guard', () => {
   describe('hex colours', () => {
     const cases: Record<string, string> = {
       'string literal': `const a = '${HEX}';`,
-      'short hex': `const a = '${SHORT_HEX}';`,
-      'template literal': `const a = \`x ${'$'}{b} ${HEX}\`;`,
+      'whole 8-digit hex': `const a = '${HEX}FF';`,
+      'short hex in a style key': `const a = { background: '${SHORT_HEX}' };`,
+      'quoted style key': `const a = { 'border-color': '${SHORT_HEX}' };`,
+      'CSS text': `const a = 'color: ${SHORT_HEX}';`,
+      'CSS shadow': `const a = 'box-shadow: 0 0 4px ${SHORT_HEX}';`,
+      'CSS border shorthand': `const a = '1px solid ${SHORT_HEX}';`,
+      gradient: `const a = 'linear-gradient(to right, ${HEX}, ${SHORT_HEX})';`,
+      'template literal': `const a = \`color: ${'$'}{b} ${HEX}\`;`,
       'JSX text': `export const A = () => <p>${HEX}</p>;`,
       'JSX attribute': `export const A = () => <b color="${SHORT_HEX}" />;`,
       'sx object value': `export const A = () => <b sx={{ color: '${HEX}' }} />;`,
@@ -55,6 +61,11 @@ describe('brand lint guard', () => {
 
   it('does not flag harmless strings', async () => {
     const code = `const a = ['kvitka', 'wisla-uat', '#section', 'Wallet', 1, true, null]; const b = brand.siteName;`;
+    expect(await violations(code, COMPONENT)).toHaveLength(0);
+  });
+
+  it('does not flag hashtags and ids that look like short hex', async () => {
+    const code = `const a = ['#add', '#feed', 'Order #1234', 'Hi #bad, #cafe!', 'Note: order #1234', { tag: '#add' }]; export const B = () => <p>#feed</p>;`;
     expect(await violations(code, COMPONENT)).toHaveLength(0);
   });
 });
