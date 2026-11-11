@@ -2,7 +2,6 @@ import { createTheme } from '@mui/material/styles';
 
 import { brand } from '../brand/brand';
 
-/** MUI theme built from the brand values of this build (`src/brand/brand.ts`). */
 export const theme = createTheme({
   palette: {
     mode: 'light',

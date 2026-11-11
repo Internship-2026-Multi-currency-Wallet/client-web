@@ -29,6 +29,8 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       'sx hex': typedSx(`{ color: '${HEX}' }`),
       'sx key that only the typing allows': typedSx(`{ accent: '${RGB}' }`),
       'sx nested selector with unknown key': typedSx(`{ '&:hover': { accent: '${RGB}' } }`),
+      'sx unknown key with a named colour': typedSx(`{ accent: '${RED}' }`),
+      'sx bgcolor with a named colour': typedSx(`{ bgcolor: '${RED}' }`),
       'sx nested selector': typedSx(`{ '&:hover': { bgcolor: '${HEX}' } }`),
       'sx hsl': typedSx(`{ color: '${HSL}' }`),
       'sx oklch': typedSx(`{ color: '${OKLCH}' }`),
@@ -46,6 +48,8 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
         "export const S = styled('div')`border: 1px solid " + HEX + ';`;',
       'SVG fill': `export const A = () => <svg><path fill="${HEX}" /></svg>;`,
       'SVG stop-color': `export const A = () => <svg><stop stop-color="${RED}" /></svg>;`,
+      'CSSProperties named colour in a border shorthand': `import type { CSSProperties } from 'react'; export const s: CSSProperties = { border: '1px solid ${RED}' };`,
+      'CSSProperties named colour': `import type { CSSProperties } from 'react'; export const s: CSSProperties = { color: '${RED}' };`,
       CSSProperties: `import type { CSSProperties } from 'react'; export const s: CSSProperties = { outlineColor: '${HEX}' };`,
     };
     it.each(Object.entries(cases))('%s', async (_name, code) => {
@@ -66,6 +70,7 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       'inherit in sx': typedSx(`{ color: 'inherit' }`),
       'transparent in sx': typedSx(`{ bgcolor: 'transparent' }`),
       'currentColor in styled': "export const S = styled('div')`color: currentColor;`;",
+      'custom identifier that spells a colour': `import type { CSSProperties } from 'react'; export const s: CSSProperties = { gridArea: '${RED}' };`,
       'non-colour in sx': typedSx(`{ display: 'flex', p: 2 }`),
     };
     it.each(Object.entries(cases))('%s', async (_name, code) => {
