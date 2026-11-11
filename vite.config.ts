@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vitest/config';
 import { brand } from './src/brand/brand.ts';
 
-// Static HTML and the web manifest take their values from `brand`, not from hard-coded text.
+// ESLint can't see index.html or the manifest, so they take their values from `brand` here.
 function brandPlugin(): Plugin {
   const manifest = JSON.stringify({
     name: brand.siteName,

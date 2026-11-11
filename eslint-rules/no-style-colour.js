@@ -31,7 +31,6 @@ const isColour = (text) =>
     .split(/[\s,():;/]+/)
     .some((word) => NAMED.has(word));
 
-// Style typings: matched by alias / symbol name, looking through unions, arrays, function results and index signatures.
 const STYLE_TYPES = new Set([
   'SxProps',
   'SystemStyleObject',
@@ -99,7 +98,6 @@ export default {
       if (node.type !== 'TemplateElement' && (inColourAttribute(node) || hasStyleType(node)))
         return true;
       if (inStyleCall(node)) return true;
-      // The value sits in an object/array that is itself typed as a style, however deep or oddly keyed.
       for (
         let n = node.parent;
         n && !/Statement$|Declaration$|^Program$/.test(n.type);
@@ -111,8 +109,29 @@ export default {
       return false;
     }
 
+    // A key whose type lists string literals, none of them this word (gridArea), takes no colour names.
+    function literalsExcludeWord(node, text) {
+      const literals = [];
+      const collect = (type) =>
+        type.isUnion()
+          ? type.types.forEach(collect)
+          : type.isStringLiteral() && literals.push(type.value);
+      const type = checker.getContextualType(services.esTreeNodeToTSNodeMap.get(node));
+      if (type) collect(type);
+      return literals.length > 0 && !literals.some((v) => v.toLowerCase() === text.toLowerCase());
+    }
+
     function check(node, text) {
-      if (isColour(text) && inStylePosition(node)) context.report({ node, messageId: 'colour' });
+      if (!isColour(text) || !inStylePosition(node)) return;
+      const onlyNamed = !HEX.test(text) && !FUNCTION.test(text);
+      if (
+        onlyNamed &&
+        node.type === 'Literal' &&
+        NAMED.has(text.toLowerCase()) &&
+        literalsExcludeWord(node, text)
+      )
+        return;
+      context.report({ node, messageId: 'colour' });
     }
 
     return {

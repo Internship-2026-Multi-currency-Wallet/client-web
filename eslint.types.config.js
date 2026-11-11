@@ -1,5 +1,5 @@
 // @ts-check
-// Type-aware rules. Run by `npm run lint:types` only: slow, so kept out of `npm run lint` and `npm run build`.
+// Keep type-aware lint out of builds because constructing the TypeScript program is slow.
 import tseslint from 'typescript-eslint';
 import noStyleColour from './eslint-rules/no-style-colour.js';
 

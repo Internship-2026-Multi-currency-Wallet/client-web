@@ -6,9 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// A hex colour is flagged by context, so hashtags and ids ('#add', 'Order #1234', 'Hi #bad, #cafe') stay allowed:
-// a whole 3/4/6/8-digit hex string; a hex in CSS-like text (after 'prop:', inside 'fn(...)', after a length or border
-// style); or a hex value of a colour-like style key / JSX attribute (color, background, border, fill, shadow, main...).
+// Match CSS contexts to avoid treating prose hashtags and order IDs as colours.
 const HEX = String.raw`#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b`;
 const CSS_BEFORE = String.raw`[:(]\s*(?:(?:[\d.]+[a-z%]*|inset|solid|dashed|dotted)\s+)*|\([^)]*,\s*|\b(?:[\d.]+(?:px|rem|em)|solid|dashed|dotted)\s+`;
 const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*${HEX}\s*$/i`;
