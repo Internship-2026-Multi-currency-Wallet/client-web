@@ -7,12 +7,11 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 // A hex colour is flagged by context, so hashtags and ids ('#add', 'Order #1234', 'Hi #bad, #cafe') stay allowed:
-// a whole 6/8-digit hex string; a hex in CSS-like text (after 'prop:', inside 'fn(...)', after a length or border
+// a whole 3/4/6/8-digit hex string; a hex in CSS-like text (after 'prop:', inside 'fn(...)', after a length or border
 // style); or a hex value of a colour-like style key / JSX attribute (color, background, border, fill, shadow, main...).
-// shortcut: a bare short hex in a plain variable ('#fff') is not caught; ban short hex everywhere if it slips through.
 const HEX = String.raw`#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b`;
 const CSS_BEFORE = String.raw`[:(]\s*(?:(?:[\d.]+[a-z%]*|inset|solid|dashed|dotted)\s+)*|\([^)]*,\s*|\b(?:[\d.]+(?:px|rem|em)|solid|dashed|dotted)\s+`;
-const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*#(?:[0-9a-f]{6}|[0-9a-f]{8})\s*$/i`;
+const HEX_TEXT = String.raw`/(?:${CSS_BEFORE})${HEX}|^\s*${HEX}\s*$/i`;
 const HEX_VALUE = String.raw`/^\s*${HEX}\s*$/i`;
 const STYLE_KEY = String.raw`/colou?r|background|bg|border|fill|stroke|shadow|outline|main|light|dark|contrastText/i`;
 const HEX_MESSAGE = 'Hex colours live only in src/brand/brand.ts; use the theme';

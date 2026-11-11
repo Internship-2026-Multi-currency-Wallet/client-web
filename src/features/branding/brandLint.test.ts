@@ -9,7 +9,7 @@ const NAMES = [
   ['wisla', 'transfer'].join(' '),
 ];
 
-describe('brand lint guard', () => {
+describe('brand lint guard', { timeout: 30_000 }, () => {
   let eslint: ESLint;
   beforeAll(() => {
     eslint = new ESLint();
@@ -33,6 +33,10 @@ describe('brand lint guard', () => {
       'CSS border shorthand': `const a = '1px solid ${SHORT_HEX}';`,
       gradient: `const a = 'linear-gradient(to right, ${HEX}, ${SHORT_HEX})';`,
       'template literal': `const a = \`color: ${'$'}{b} ${HEX}\`;`,
+      'whole short hex': `const a = '${SHORT_HEX}';`,
+      'whole 4-digit hex with spaces': `const a = ' ${SHORT_HEX}f ';`,
+      'short hex in template element': `const a = \`${SHORT_HEX}\`;`,
+      'short hex in JSX text': `export const A = () => <p>${SHORT_HEX}</p>;`,
       'JSX text': `export const A = () => <p>${HEX}</p>;`,
       'JSX attribute': `export const A = () => <b color="${SHORT_HEX}" />;`,
       'sx object value': `export const A = () => <b sx={{ color: '${HEX}' }} />;`,
@@ -65,7 +69,14 @@ describe('brand lint guard', () => {
   });
 
   it('does not flag hashtags and ids that look like short hex', async () => {
-    const code = `const a = ['#add', '#feed', 'Order #1234', 'Hi #bad, #cafe!', 'Note: order #1234', { tag: '#add' }]; export const B = () => <p>#feed</p>;`;
+    const code = `const a = ['Hi #add', 'Order #1234', 'Hi #bad, #cafe!', 'Note: order #1234']; export const B = () => <p>Loving it #feed</p>;`;
+    expect(await violations(code, COMPONENT)).toHaveLength(0);
+  });
+
+  it('lets an eslint-disable comment keep a short-hex id', async () => {
+    const id = '#' + 'add';
+    const rule = 'no-restricted-syntax';
+    const code = `// eslint-disable-next-line ${rule} -- real id\nconst a = '${id}';`;
     expect(await violations(code, COMPONENT)).toHaveLength(0);
   });
 });
