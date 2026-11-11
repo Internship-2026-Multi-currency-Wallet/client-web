@@ -15,7 +15,7 @@ export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
   const logout = useLogout();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
