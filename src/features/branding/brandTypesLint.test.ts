@@ -76,6 +76,8 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       ['both branches of a conditional', `fill={active ? '${RED}' : '${BLUE}'}`, 2],
       ['a logical and', `stroke={active && '${RED}'}`, 1],
       ['a nullish fallback', `fill={cond ?? '${RED}'}`, 1],
+      ['a static template literal', `fill={\`${RED}\`}`, 1],
+      ['template literals in both branches', `stroke={active ? \`${RED}\` : \`${BLUE}\`}`, 2],
       [
         'a type assertion around a conditional',
         `fill={(active ? '${RED}' : '${BLUE}') as string}`,
@@ -109,6 +111,9 @@ describe('type-aware colour lint', { timeout: 60_000 }, () => {
       'non-colour conditional in a colour attribute': `declare const active: boolean; export const A = () => <svg><path fill={active ? 'currentColor' : 'none'} /></svg>;`,
       'theme value in a colour attribute': `declare const theme: { palette: { primary: { main: string } } }; export const A = () => <svg><path fill={theme.palette.primary.main} /></svg>;`,
       'comparison in the test of a conditional': `declare const mode: string; export const A = () => <svg><path fill={mode === '${RED}' ? 'x' : 'y'} /></svg>;`,
+      'currentColor template in a colour attribute': `export const A = () => <svg><path fill={\`currentColor\`} /></svg>;`,
+      'colour template in a data attribute': `export const A = () => <svg><path data-x={\`${RED}\`} /></svg>;`,
+      'colour template in a title attribute': `export const A = () => <svg><path title={\`${RED}\`} /></svg>;`,
       'non-colour in sx': typedSx(`{ display: 'flex', p: 2 }`),
     };
     it.each(Object.entries(cases))('%s', async (_name, code) => {

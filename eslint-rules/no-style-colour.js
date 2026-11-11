@@ -97,8 +97,8 @@ export default {
     ]);
 
     function inColourAttribute(node) {
-      let child = node;
-      let parent = node.parent;
+      let child = node.type === 'TemplateElement' ? node.parent : node;
+      let parent = child.parent;
       while (
         WRAPPERS.has(parent.type) ||
         (parent.type === 'ConditionalExpression' && parent.test !== child)
@@ -111,7 +111,7 @@ export default {
     }
 
     function inStylePosition(node) {
-      if (node.type !== 'TemplateElement' && (inColourAttribute(node) || hasStyleType(node)))
+      if (inColourAttribute(node) || (node.type !== 'TemplateElement' && hasStyleType(node)))
         return true;
       if (inStyleCall(node)) return true;
       for (
