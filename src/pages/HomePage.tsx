@@ -1,8 +1,10 @@
 import { Alert, Card, CardContent, Stack, Typography } from '@mui/material';
+import { usePageTitle } from '../features/branding/usePageTitle';
 import { useMeQuery, useWalletCoreHealthQuery } from '../features/system/systemApi';
 import { ServerTime } from '../features/server-time/ServerTime';
 
 export function HomePage() {
+  usePageTitle('Home');
   const health = useWalletCoreHealthQuery();
   const me = useMeQuery();
 
@@ -27,14 +29,12 @@ export function HomePage() {
 
             {me.data && (
               <Typography data-testid="me">
-                Dev user: {me.data.id} (permissions: {me.data.permissions.join(', ') || 'none'})
+                {me.data.strategy === 'dev' ? 'Dev user' : 'Authenticated user'}: {me.data.id}{' '}
+                (permissions: {me.data.permissions.join(', ') || 'none'})
               </Typography>
             )}
             {me.error && (
-              <Alert severity="info">
-                Not signed in ({me.error.code ?? me.error.message}). Set VITE_DEV_USER, e.g.{' '}
-                <code>1:wallet</code>.
-              </Alert>
+              <Alert severity="error">Could not load your account: {me.error.message}</Alert>
             )}
 
             <ServerTime />

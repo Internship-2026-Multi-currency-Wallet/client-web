@@ -16,6 +16,7 @@ export const meQuery = graphql(`
   query Me {
     me {
       id
+      kind
       permissions
       strategy
     }
