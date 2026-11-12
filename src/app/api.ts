@@ -1,5 +1,5 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
-import { type GraphQLRequestError, toRequestError } from '../graphql/client';
+import { type GraphQLRequestError, toRequestError } from '../graphql/errors';
 
 /**
  * RTK Query API for GraphQL. Features add their endpoints with `api.injectEndpoints`

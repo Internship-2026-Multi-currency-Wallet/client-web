@@ -93,6 +93,53 @@ it to Cloudflare Pages (`.github/workflows/deploy.yml` → `ops/.github/workflow
 (subscriptions `wss://<env>-rates.wallet.shatori.com/graphql`).
 The Docker image (nginx) is for the local stack only.
 
+## Authentication
+
+Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `RequireAuth`. Contract: `wallet-core`
+`register` (creates the account only), `login`, `refreshSession`, `logout`.
+
+- The **access token** (15 min) and the user are kept in `localStorage` (`src/graphql/session.ts`, team decision for
+  the MVP). The **refresh token** is an HttpOnly cookie that wallet-core sets; requests to wallet-core use
+  `credentials: 'include'`. Redux (`features/auth/authSlice.ts`) only mirrors the user.
+- Redux DevTools are off in production builds (`devTools: import.meta.env.DEV` in `src/app/store.ts`).
+- `request()` in `src/graphql/client.ts` adds `Authorization: Bearer …`. On `UNAUTHENTICATED` it refreshes the session
+  (concurrent requests share one refresh), repeats the request once, and clears the session on
+  `INVALID_REFRESH_TOKEN`. Network errors and 5xx keep the session. The dev user (`VITE_DEV_USER`) is only used while
+  nobody is signed in.
+- wallet-core rotates the refresh cookie on every refresh and the old one dies at once, so a refresh runs inside one
+  Web Lock (`wallet.refresh`) shared by all tabs. After getting the lock a tab reads the token again and reuses it if
+  another tab has already refreshed. A refresh answer never overwrites a logout or login that happened meanwhile.
+- After a reload an expired token is renewed before protected pages show (`RequireAuth`). Another user (or nobody)
+  resets the RTK Query cache; the public settings are kept so the app does not reload.
+- Logout clears the local session, calls `logout` (revokes the session, clears the cookie) without waiting, and goes
+  to `/login`. Other tabs follow through the `storage` event.
+- Mock mode prints a console warning when a request to a backend has no handler (instead of failing silently with
+  `ERR_CONNECTION_REFUSED`). If you see that error, reload normally (not Ctrl+Shift+R) and check DevTools →
+  Application → Service Workers → "Bypass for network" is off.
+- With `VITE_USE_MOCKS=true` the mock user is `demo@example.com` / `Demo1234!`; accounts you register stay until the
+  tab is closed (use fake passwords). 5 wrong passwords lock the mock account for 15 minutes.
+- **Known mock limitation (mock mode only, not a production behaviour):** the mock accounts live in each tab's own
+  `sessionStorage`, while the session and the mock refresh cookie are shared by all tabs. An account registered in
+  one tab is therefore unknown to a second, independently opened tab: logging in there fails, and a refresh of that
+  session fails with `INVALID_REFRESH_TOKEN`. The demo user exists in every tab. Test multi-tab behaviour with the
+  demo user, or against a real backend.
+
+### Against a real backend
+
+The refresh cookie of wallet-core is `HttpOnly; Secure; SameSite=Strict; Path=/graphql`, without `Domain` (so it
+belongs to the backend host only). The browser therefore stores and sends it only when the app and the backend are
+the **same site**, and the backend must list the app's origin in its `CORS_ORIGINS` (credentials are included).
+
+- **Deployed** (`https://<env>.wallet.shatori.com` → `https://<env>-wallet-core.wallet.shatori.com`): same site,
+  origin allowed. This is the supported setup.
+- **Local app (`npm run dev`) → deployed backend: does not work.** `localhost` is another site than
+  `shatori.com`, and the deployed backends do not allow `http://localhost:*` in `CORS_ORIGINS` (the browser blocks
+  even the first response). Even if they did, `SameSite=Strict` would drop the cookie, so login would work but no
+  refresh ever would.
+- **Local app → local backend:** `npm run infra -- up wallet-core` (see above), then `npm run dev`. `localhost:5173` and
+  `localhost:3000` are the same site and `5173` is in the default `CORS_ORIGINS`. The container runs with
+  `NODE_ENV=production`, so the cookie is `Secure`; some browsers refuse a `Secure` cookie from plain `http://localhost` (the backend's own comment says so). Use a browser that accepts it, e.g. current Chromium.
+
 ## GraphQL: contract, types and mocks
 
 1. **Contract.** Each backend commits its `schema.graphql`. `npm run schema:pull` downloads them from the `main`
@@ -127,6 +174,30 @@ e2e/             Playwright smoke tests
 ```
 
 Shared files (`app/store.ts`, `app/routes.tsx`, layout/navigation) change only in small, dedicated PRs.
+
+## Branding
+
+Every client's look comes from three files; each client branch has its own versions of them.
+
+- `src/brand/brand.ts` — `siteName`, `palette`, `fontFamily`, `logoUrl`, `faviconUrl`.
+- `public/brand/logo.svg` — the logo (`brand.logoUrl`).
+- `public/brand/favicon.svg` — the favicon (`brand.faviconUrl`).
+
+Brand values live only there: no hex colours or product names anywhere else. Components use the theme, `<Logo />`
+and `brand.siteName`; tests assert against `brand.siteName`, not a literal name.
+
+- The tab title, favicon link and `/manifest.webmanifest` are generated from `brand.ts` by the Vite plugin in
+  `vite.config.ts`, so `index.html` has no hard-coded name.
+- Page titles look like `Login · <siteName>`; set them with `usePageTitle`.
+- A `no-restricted-syntax` rule in `eslint.config.js` fails `npm run lint` on hex colours and product
+  names (Demo Wallet, Kvitka Bank, Wisła Transfer) outside `src/brand/**`.
+  It is context-based and fast. A whole string that is a short hex (`'#fff'`) counts as a colour; a real id like that
+  needs `// eslint-disable-next-line no-restricted-syntax -- reason`.
+- A type-aware rule (`eslint-rules/no-style-colour.js`, config `eslint.types.config.js`) runs in `npm run lint:types`,
+  not in `npm run build`. It flags colours (hex, `rgb()`, named, ...) in typed style positions: `sx`, `styled`, theme
+  options, SVG `fill`/`stroke`. Limitations: colours built at runtime and colours outside typed style positions (for
+  example a plain `string` variable) are not caught.
+- On a merge conflict in a brand file, keep the client's version.
 
 ## Docker
 
