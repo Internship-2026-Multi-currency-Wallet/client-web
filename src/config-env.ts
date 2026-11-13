@@ -22,7 +22,7 @@ export interface AppConfig {
   useMocks: boolean;
   /** Dev auth user, e.g. `1:wallet` → `Authorization: Dev 1:wallet`. Empty = anonymous. */
   devUser: string | null;
-  /** Google OAuth Client ID for "Sign in with Google". Public (ends up in the bundle). `null` = not configured. */
+  /** Vite embeds this value in the public bundle; never use a client secret here. */
   googleClientId: string | null;
 }
 
