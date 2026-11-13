@@ -25,7 +25,7 @@ const LOCK_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
 const REFRESH_COOKIE = 'mock_refresh';
 
-interface MockUser {
+export interface MockUser {
   id: string;
   email: string;
   phone: string | null;
@@ -63,6 +63,10 @@ export function resetMockAuth(): void {
   clearMockRefreshCookie();
 }
 
+export function mockUserById(id: string): MockUser | undefined {
+  return [...users.values()].find((user) => user.id === id);
+}
+
 type PublicUser = { id: string; email: string; phone: string | null };
 
 const publicUser = ({ id, email, phone }: MockUser): PublicUser => ({ id, email, phone });
@@ -91,7 +95,7 @@ function refreshCookieUserId(): string | null {
   return match ? match[1] : null;
 }
 
-function graphqlError(
+export function graphqlError(
   code: string,
   message: string,
   extensions: Record<string, string> = {},
@@ -101,7 +105,7 @@ function graphqlError(
   });
 }
 
-function authPayload(user: MockUser) {
+export function authPayload(user: MockUser) {
   const expiresAt = Date.now() + ACCESS_TTL_MS;
   return {
     accessToken: mockAccessToken(user.id, expiresAt),
