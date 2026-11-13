@@ -118,9 +118,10 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   Application → Service Workers → "Bypass for network" is off.
 - With `VITE_USE_MOCKS=true` the mock user is `demo@example.com` / `Demo1234!`; accounts you register stay until the
   tab is closed (use fake passwords). 5 wrong passwords lock the mock account for 15 minutes.
-- **Sign in with Google in mock mode:** there is no Google. Call `StartGoogleLink` / `StartGoogleLogin` as usual, then
-  instead of redirecting to Google open `/auth/google/callback?code=<code>&state=<state>` with
-  `code = mockGoogleCode('<any Google email>')` (`src/mocks/google-handlers.ts`) and the returned `state`. A Google
+- **Sign in with Google in mock mode:** there is no Google and no redirect. Call `StartGoogleLink` /
+  `StartGoogleLogin`, then call `LinkGoogleAccount` / `LoginWithGoogle` straight away with the `state` you got back,
+  `redirectUri` = an allowed origin + `/auth/google/callback`, and `code = mockGoogleCode('<any Google email>')`
+  (`src/mocks/google-handlers.ts`). That is what the callback route will do once the UI subtask adds it. A Google
   email starting with `unverified` answers `GOOGLE_EMAIL_NOT_VERIFIED`; any other code answers `INVALID_GOOGLE_CODE`.
   Links and the started sign-in live in the tab's `sessionStorage`.
 - **Known mock limitation (mock mode only, not a production behaviour):** the mock accounts live in each tab's own

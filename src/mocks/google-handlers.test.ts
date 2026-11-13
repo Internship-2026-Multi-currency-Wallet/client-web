@@ -125,13 +125,26 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
     });
   });
 
-  it('answers BAD_USER_INPUT for a redirect URI that is not the callback', async () => {
+  it.each([
+    ['another path on an allowed origin', 'http://localhost:5173/'],
+    ['the callback path on a foreign origin', 'https://attacker.example/auth/google/callback'],
+    ['a relative path', '/auth/google/callback'],
+    ['a trailing slash', 'http://localhost:5173/auth/google/callback/'],
+    ['a query', 'http://localhost:5173/auth/google/callback?x=1'],
+  ])('answers BAD_USER_INPUT for a redirect URI with %s', async (_name, redirectUri) => {
     signInForTest();
     const { state } = await startLink();
-    expect(
-      (await errorOf(linkWith(state, 'demo@gmail.com', { redirectUri: 'http://localhost:5173/' })))
-        ?.extensions,
-    ).toEqual({ code: 'BAD_USER_INPUT', field: 'redirectUri' });
+    expect((await errorOf(linkWith(state, 'demo@gmail.com', { redirectUri })))?.extensions).toEqual(
+      { code: 'BAD_USER_INPUT', field: 'redirectUri' },
+    );
+  });
+
+  it('accepts the callback of the origin the app itself runs on', async () => {
+    signInForTest();
+    const { state } = await startLink();
+    await expect(
+      linkWith(state, 'demo@gmail.com', { redirectUri: `${location.origin}/auth/google/callback` }),
+    ).resolves.toMatchObject({ linkGoogleAccount: { email: 'demo@gmail.com' } });
   });
 
   it('answers INVALID_GOOGLE_CODE for a code Google did not issue', async () => {

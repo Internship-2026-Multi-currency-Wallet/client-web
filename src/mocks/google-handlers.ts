@@ -29,6 +29,24 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 const PENDING_KEY = 'mock.google.pending';
 const LINKS_KEY = 'mock.google.links';
 const CALLBACK_PATH = '/auth/google/callback';
+// wallet-core accepts one of its CORS origins plus exactly this path, so the mock must not be laxer:
+// a redirect URI it approves has to work against the real backend too.
+const ALLOWED_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', location.origin];
+
+function isAllowedRedirect(redirectUri: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(redirectUri);
+  } catch {
+    return false;
+  }
+  return (
+    ALLOWED_ORIGINS.includes(url.origin) &&
+    url.pathname === CALLBACK_PATH &&
+    url.search === '' &&
+    url.hash === ''
+  );
+}
 
 export function mockGoogleCode(email: string): string {
   return `${MOCK_GOOGLE_CODE_PREFIX}${email}`;
@@ -97,7 +115,7 @@ function verify(
       field: 'state',
     });
   }
-  if (!input.redirectUri.endsWith(CALLBACK_PATH)) {
+  if (!isAllowedRedirect(input.redirectUri)) {
     return graphqlError(AUTH_ERROR_CODES.BAD_USER_INPUT, 'Unknown Google redirect URI', {
       field: 'redirectUri',
     });
