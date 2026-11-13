@@ -9,15 +9,14 @@ export type DependencyStatus =
   | 'DOWN'
   | 'UP';
 
-/** What client-web received from Google on its callback route. wallet-core exchanges the code with Google itself; nothing else about the Google user is sent or trusted. */
+/** wallet-core exchanges the code with Google itself; nothing the browser says about the Google user is trusted. */
 export type GoogleAuthInput = {
-  /** The one-time `code` query parameter Google redirected back with. */
   code: string;
   /** PKCE code_verifier, when the sign-in was started with a code_challenge (recommended). */
   codeVerifier?: string | null | undefined;
-  /** The redirect_uri used to start the Google sign-in, exactly: an allowed client-web origin + "/auth/google/callback". */
+  /** The redirect_uri the sign-in was started with, exactly: an allowed client-web origin + "/auth/google/callback". */
   redirectUri: string;
-  /** The `state` query parameter Google redirected back with: the state from startGoogleLink / startGoogleLogin. */
+  /** From startGoogleLink / startGoogleLogin, as Google redirected it back. */
   state: string;
 };
 

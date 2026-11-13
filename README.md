@@ -123,7 +123,8 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   `redirectUri` = an allowed origin + `/auth/google/callback`, and `code = mockGoogleCode('<any Google email>')`
   (`src/mocks/google-handlers.ts`). That is what the callback route will do once the UI subtask adds it. A Google
   email starting with `unverified` answers `GOOGLE_EMAIL_NOT_VERIFIED`; any other code answers `INVALID_GOOGLE_CODE`.
-  Links and the started sign-in live in the tab's `sessionStorage`.
+  The started sign-in lives in a `google_auth_state` cookie, as on the backend, except that JavaScript cannot make it
+  httpOnly; mock links live in the tab's `sessionStorage`.
 - **Known mock limitation (mock mode only, not a production behaviour):** the mock accounts live in each tab's own
   `sessionStorage`, while the session and the mock refresh cookie are shared by all tabs. An account registered in
   one tab is therefore unknown to a second, independently opened tab: logging in there fails, and a refresh of that

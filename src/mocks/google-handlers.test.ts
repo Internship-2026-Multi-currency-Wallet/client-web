@@ -91,6 +91,28 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
     await expect(link('second@gmail.com')).resolves.toBeDefined();
   });
 
+  describe('the google_auth_state cookie', () => {
+    const stateCookie = () =>
+      /(?:^|; )google_auth_state=([^;]*)/.exec(document.cookie)?.[1] ?? null;
+
+    it('is set when a sign-in starts and cleared by the attempt that uses it', async () => {
+      signInForTest();
+      const { state } = await startLink();
+      expect(stateCookie()).not.toBeNull();
+      await linkWith(state, 'demo@gmail.com');
+      expect(stateCookie()).toBeNull();
+    });
+
+    it('is what the sign-in is carried in: without it the attempt is refused', async () => {
+      signInForTest();
+      const { state } = await startLink();
+      document.cookie = 'google_auth_state=; path=/; max-age=0';
+      expect((await errorOf(linkWith(state, 'demo@gmail.com')))?.extensions).toEqual({
+        code: 'INVALID_GOOGLE_STATE',
+      });
+    });
+  });
+
   describe('INVALID_GOOGLE_STATE', () => {
     it('without a started sign-in', async () => {
       signInForTest();

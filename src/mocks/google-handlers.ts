@@ -26,7 +26,10 @@ const walletCore = graphql.link(config.walletCoreUrl);
 
 const MOCK_GOOGLE_CODE_PREFIX = 'mock-google:';
 const STATE_TTL_MS = 10 * 60 * 1000;
-const PENDING_KEY = 'mock.google.pending';
+// wallet-core keeps the whole sign-in in this cookie and nothing on the server, so the mock does the
+// same. JavaScript cannot set httpOnly, and jsdom does not pass cookies to a handler, so the value is
+// plain and read from `document.cookie`: the mock cannot catch a request sent without credentials.
+const STATE_COOKIE = 'google_auth_state';
 const LINKS_KEY = 'mock.google.links';
 const CALLBACK_PATH = '/auth/google/callback';
 // wallet-core accepts one of its CORS origins plus exactly this path, so the mock must not be laxer:
@@ -75,9 +78,28 @@ function saveLinks(links: MockLink[]): void {
   sessionStorage.setItem(LINKS_KEY, JSON.stringify(links));
 }
 
+function writeStateCookie(pending: PendingSignIn): void {
+  const value = encodeURIComponent(JSON.stringify(pending));
+  document.cookie = `${STATE_COOKIE}=${value}; path=/; max-age=${STATE_TTL_MS / 1000}`;
+}
+
+function readStateCookie(): PendingSignIn | null {
+  const match = new RegExp(`(?:^|; )${STATE_COOKIE}=([^;]*)`).exec(document.cookie);
+  if (!match) return null;
+  try {
+    return JSON.parse(decodeURIComponent(match[1])) as PendingSignIn;
+  } catch {
+    return null;
+  }
+}
+
+function clearStateCookie(): void {
+  document.cookie = `${STATE_COOKIE}=; path=/; max-age=0`;
+}
+
 export function resetMockGoogle(): void {
   sessionStorage.removeItem(LINKS_KEY);
-  sessionStorage.removeItem(PENDING_KEY);
+  clearStateCookie();
 }
 
 function start(purpose: PendingSignIn['purpose'], userId: string | null) {
@@ -87,7 +109,7 @@ function start(purpose: PendingSignIn['purpose'], userId: string | null) {
     state: crypto.randomUUID(),
     expiresAt: Date.now() + STATE_TTL_MS,
   };
-  sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+  writeStateCookie(pending);
   return {
     state: pending.state,
     nonce: crypto.randomUUID(),
@@ -103,8 +125,9 @@ function verify(
   input: GoogleAuthInput,
   expected: { purpose: PendingSignIn['purpose']; userId: string | null },
 ): GoogleIdentity | ReturnType<typeof graphqlError> {
-  const raw = sessionStorage.getItem(PENDING_KEY);
-  sessionStorage.removeItem(PENDING_KEY);
+  const pending = readStateCookie();
+  // One attempt per sign-in, as wallet-core clears the cookie whatever the result.
+  clearStateCookie();
   if (!input.code.trim()) {
     return graphqlError(AUTH_ERROR_CODES.BAD_USER_INPUT, 'Google authorization code is required', {
       field: 'code',
@@ -120,7 +143,6 @@ function verify(
       field: 'redirectUri',
     });
   }
-  const pending = raw ? (JSON.parse(raw) as PendingSignIn) : null;
   if (
     !pending ||
     pending.expiresAt <= Date.now() ||
