@@ -14,6 +14,7 @@ ARG VITE_RATES_SERVICE_URL=
 ARG VITE_RATES_SERVICE_WS_URL=
 ARG VITE_USE_MOCKS=false
 ARG VITE_DEV_USER=
+ARG VITE_GOOGLE_CLIENT_ID=
 RUN npm run build
 
 # ---- runtime: nginx serving static files, non-root ----

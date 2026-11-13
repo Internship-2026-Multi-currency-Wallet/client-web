@@ -7,6 +7,7 @@ describe('resolveConfig', () => {
       ...ENVIRONMENTS.local,
       useMocks: false,
       devUser: null,
+      googleClientId: null,
     });
   });
 
@@ -23,6 +24,7 @@ describe('resolveConfig', () => {
       VITE_CLIENT: 'wisla',
       VITE_USE_MOCKS: 'true',
       VITE_DEV_USER: '1:wallet',
+      VITE_GOOGLE_CLIENT_ID: ' 123-abc.apps.googleusercontent.com ',
     });
     expect(config).toMatchObject({
       appEnv: 'staging',
@@ -31,6 +33,7 @@ describe('resolveConfig', () => {
       client: 'wisla',
       useMocks: true,
       devUser: '1:wallet',
+      googleClientId: '123-abc.apps.googleusercontent.com',
     });
   });
 
