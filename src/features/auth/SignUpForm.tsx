@@ -1,11 +1,14 @@
 import { Alert, Box, Button, Stack, TextField } from '@mui/material';
+import { useId } from 'react';
 import { useAppForm } from '../../hooks/useAppForm';
+import { PasswordChecklist } from './PasswordChecklist';
 import {
   type SignUpValues,
   type SignUpInput,
   type SignUpErrors,
   signUpSchema,
   toSignUpInput,
+  PASSWORD_HINT,
 } from './validation';
 
 export interface SignUpFormProps {
@@ -31,12 +34,20 @@ export function SignUpForm({
     registerInput,
     handleSubmit,
     formRef,
-    formState: { errors },
+    formState: { errors, isSubmitted, isSubmitting: isFormSubmitting },
+    watch,
     setError,
   } = useAppForm<SignUpValues>({
     schema: signUpSchema(phoneRequired),
     defaultValues: EMPTY,
   });
+  const passwordId = useId();
+  const checklistId = `${passwordId}-requirements`;
+  const showChecklist = isSubmitted || isFormSubmitting;
+  const passwordError =
+    errors.password?.type !== 'server' && errors.password?.message === PASSWORD_HINT
+      ? 'Meet all password requirements below'
+      : errors.password?.message;
 
   // A field's server error goes away when that field is edited: RHF re-validates it after a submit.
   const submit = async (values: SignUpValues) => {
@@ -69,15 +80,25 @@ export function SignUpForm({
           disabled={isSubmitting}
         />
         <TextField
+          id={passwordId}
           label="Password"
           type="password"
           {...registerInput('password')}
           autoComplete="new-password"
           required
           error={Boolean(errors.password)}
-          helperText={errors.password?.message}
+          helperText={passwordError}
+          slotProps={{
+            htmlInput: {
+              'aria-describedby':
+                [passwordError && `${passwordId}-helper-text`, showChecklist && checklistId]
+                  .filter(Boolean)
+                  .join(' ') || undefined,
+            },
+          }}
           disabled={isSubmitting}
         />
+        {showChecklist && <PasswordChecklist id={checklistId} password={watch('password')} />}
         <TextField
           label={phoneRequired ? 'Phone' : 'Phone (optional)'}
           required={phoneRequired}

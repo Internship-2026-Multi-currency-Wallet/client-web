@@ -206,8 +206,16 @@ describe('SignUpPage', () => {
     await userEvent.click(submit());
 
     const input = { email, password, phone }[field as 'email' | 'password' | 'phone']();
-    await screen.findByText(text);
-    expect(input).toHaveAccessibleDescription(text);
+    if (field === 'password') {
+      const helperId = `${input.id}-helper-text`;
+      await waitFor(() =>
+        expect(document.getElementById(helperId)).toHaveTextContent(
+          /^Use 8-128 characters with a digit, an uppercase letter and a special character$/,
+        ),
+      );
+      expect(input.getAttribute('aria-describedby')?.split(' ')).toContain(helperId);
+    }
+    await waitFor(() => expect(input).toHaveAccessibleDescription(text));
     await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByText('dev message')).not.toBeInTheDocument();
   });

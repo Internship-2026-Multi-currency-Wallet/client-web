@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SignUpForm, type SignUpFormProps } from './SignUpForm';
 
@@ -15,6 +15,51 @@ function setup(props: Partial<SignUpFormProps> = {}) {
 }
 
 describe('SignUpForm', () => {
+  it('reveals the associated checklist on submit and updates every rule in both directions', async () => {
+    const { email, password, submit, onSubmit } = setup();
+    await userEvent.type(email, 'user@example.com');
+    await userEvent.type(password, 'secret');
+    expect(
+      screen.queryByRole('list', { name: 'Requirements for password' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(submit);
+    const checklist = screen.getByRole('list', { name: 'Requirements for password' });
+    expect(password.getAttribute('aria-describedby')?.split(' ')).toContain(checklist.id);
+    expect(password).toHaveAccessibleDescription(/8-128 characters: Not met/);
+    expect(within(checklist).getAllByText(/: Not met$/)).toHaveLength(4);
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await userEvent.clear(password);
+    await userEvent.type(password, 'Пароль1!');
+    expect(within(checklist).getAllByText(/: Met$/)).toHaveLength(4);
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledOnce();
+
+    await userEvent.clear(password);
+    await userEvent.type(password, 'secret');
+    expect(within(checklist).getAllByText(/: Not met$/)).toHaveLength(4);
+    await userEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it('shows the checklist while the first valid submission is still pending', async () => {
+    let finish!: (value: undefined) => void;
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { email, password, submit } = setup({ onSubmit });
+    await userEvent.type(email, 'user@example.com');
+    await userEvent.type(password, 'Secret123!');
+    await userEvent.click(submit);
+    expect(screen.getByRole('list', { name: 'Requirements for password' })).toBeInTheDocument();
+    finish(undefined);
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+
   it('submits normalized values', async () => {
     const { onSubmit, email, password, phone } = setup();
     await userEvent.type(email, ' USER@example.com ');
@@ -49,7 +94,7 @@ describe('SignUpForm', () => {
     expect(email).toBeInvalid();
     expect(email).toHaveAccessibleDescription('Enter your email');
     expect(password).toBeInvalid();
-    expect(password).toHaveAccessibleDescription('Enter a password');
+    expect(password).toHaveAccessibleDescription(/^Enter a password/);
     expect(email).toHaveFocus();
   });
 
@@ -100,7 +145,7 @@ describe('SignUpForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
     expect(email).toHaveAttribute('aria-invalid', 'false');
     expect(password).toBeInvalid();
-    expect(password).toHaveAccessibleDescription('Enter a password');
+    expect(password).toHaveAccessibleDescription(/^Enter a password/);
     expect(password).toHaveFocus();
   });
 
@@ -211,14 +256,17 @@ describe('SignUpForm', () => {
     expect(screen.getByLabelText('Phone (optional)')).toBe(phone);
   });
 
-  it('rejects a weak password with the rules hint', async () => {
+  it('rejects a weak password with the checklist and no duplicate rules hint', async () => {
     const { onSubmit, email, password, submit } = setup();
     await userEvent.type(email, 'user@example.com');
     await userEvent.type(password, 'secret');
     await userEvent.click(submit);
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(password).toHaveAccessibleDescription(/8-128 characters/);
+    expect(password).toHaveAccessibleDescription(
+      /Meet all password requirements below.*8-128 characters/,
+    );
+    expect(screen.queryByText(/^Use 8-128/)).not.toBeInTheDocument();
     expect(password).toHaveFocus();
   });
 
@@ -250,12 +298,12 @@ describe('SignUpForm', () => {
     await waitFor(() => expect(email).toHaveAccessibleDescription('Email is taken'));
 
     await userEvent.clear(password);
-    expect(password).toHaveAccessibleDescription('Enter a password');
+    expect(password).toHaveAccessibleDescription(/^Enter a password/);
     expect(email).toHaveAccessibleDescription('Email is taken');
 
     await userEvent.type(email, 'x');
     expect(email).toHaveAttribute('aria-invalid', 'false');
-    expect(password).toHaveAccessibleDescription('Enter a password');
+    expect(password).toHaveAccessibleDescription(/^Enter a password/);
   });
 
   it('retries after a server field error and applies the answer of the new attempt', async () => {
