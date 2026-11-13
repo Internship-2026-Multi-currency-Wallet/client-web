@@ -2,6 +2,7 @@ import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
 import { authHandlers, userIdFromBearer } from './auth-handlers';
+import { googleHandlers } from './google-handlers';
 import type {
   MeQuery,
   PublicSettingsQuery,
@@ -41,6 +42,7 @@ export const handlers = [
   ),
 
   ...authHandlers,
+  ...googleHandlers,
 
   // Values of the agreed settings catalog (not a live backend response).
   walletCore.query<PublicSettingsQuery>('PublicSettings', () =>
