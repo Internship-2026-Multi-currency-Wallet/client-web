@@ -6,7 +6,11 @@ export type { LoginInput };
 export type SignUpInput = RegisterInput;
 export type SignUpErrors = Partial<Record<keyof SignUpValues, string>>;
 
+export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
+export const PASSWORD_DIGIT_PATTERN = /[0-9]/;
+export const PASSWORD_UPPERCASE_PATTERN = /\p{Lu}/u;
+export const PASSWORD_SPECIAL_PATTERN = /[^\p{L}\p{N}]/u;
 export const EMAIL_MAX_LENGTH = 255;
 export const PASSWORD_HINT =
   'Use 8-128 characters with a digit, an uppercase letter and a special character';
@@ -38,11 +42,11 @@ export const passwordSchema = z.string().min(1, 'Enter a password');
 export const newPasswordSchema = passwordSchema.pipe(
   z
     .string()
-    .min(8, PASSWORD_HINT)
+    .min(PASSWORD_MIN_LENGTH, PASSWORD_HINT)
     .max(PASSWORD_MAX_LENGTH, PASSWORD_HINT)
-    .regex(/[0-9]/, PASSWORD_HINT)
-    .regex(/\p{Lu}/u, PASSWORD_HINT)
-    .regex(/[^\p{L}\p{N}]/u, PASSWORD_HINT),
+    .regex(PASSWORD_DIGIT_PATTERN, PASSWORD_HINT)
+    .regex(PASSWORD_UPPERCASE_PATTERN, PASSWORD_HINT)
+    .regex(PASSWORD_SPECIAL_PATTERN, PASSWORD_HINT),
 );
 export const phoneSchema = (required = false) =>
   z
