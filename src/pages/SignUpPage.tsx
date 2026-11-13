@@ -50,12 +50,23 @@ export function SignUpPage() {
           />
         </CardContent>
       </Card>
-      <Typography variant="body2" color="text.secondary">
-        Already have an account?{' '}
-        <Link component={RouterLink} to="/login" state={{ from }}>
-          Log in
+      <Stack spacing={0.5}>
+        <Typography variant="body2" color="text.secondary">
+          Already have an account?{' '}
+          <Link component={RouterLink} to="/login" state={{ from }}>
+            Log in
+          </Link>
+        </Typography>
+        <Link
+          href="/third-party-notices.txt"
+          target="_blank"
+          rel="noreferrer"
+          variant="caption"
+          sx={{ color: 'text.secondary', alignSelf: 'flex-start' }}
+        >
+          Third-party notices
         </Link>
-      </Typography>
+      </Stack>
     </Stack>
   );
 }

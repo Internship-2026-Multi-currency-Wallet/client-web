@@ -24,6 +24,15 @@ async function open() {
 }
 
 describe('SignUpPage', () => {
+  it('links to third-party notices below the login prompt, outside the form', async () => {
+    await open();
+    const link = screen.getByRole('link', { name: 'Third-party notices' });
+    expect(link).toBeVisible();
+    expect(link).toHaveAttribute('href', '/third-party-notices.txt');
+    expect(screen.getByText(/Already have an account/).nextElementSibling).toBe(link);
+    expect(link.closest('form')).toBeNull();
+  });
+
   it('is served at /signup and moves focus to its heading', async () => {
     renderApp('/signup');
     expect(await screen.findByRole('heading', { name: 'Create account' })).toHaveFocus();
