@@ -21,14 +21,12 @@ import {
   userIdFromBearer,
 } from './auth-handlers';
 
-// No Google in mock mode: see "Sign in with Google in mock mode" in the README.
 const walletCore = graphql.link(config.walletCoreUrl);
 
 const MOCK_GOOGLE_CODE_PREFIX = 'mock-google:';
 const STATE_TTL_MS = 10 * 60 * 1000;
-// wallet-core keeps the whole sign-in in this cookie and nothing on the server, so the mock does the
-// same. JavaScript cannot set httpOnly, and jsdom does not pass cookies to a handler, so the value is
-// plain and read from `document.cookie`: the mock cannot catch a request sent without credentials.
+// Because jsdom does not forward request cookies, this mock reads a JavaScript-accessible cookie
+// directly and cannot detect omitted credentials.
 const STATE_COOKIE = 'google_auth_state';
 const LINKS_KEY = 'mock.google.links';
 const CALLBACK_PATH = '/auth/google/callback';
