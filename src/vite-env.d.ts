@@ -8,4 +8,5 @@ interface ImportMetaEnv {
   readonly VITE_RATES_SERVICE_WS_URL?: string;
   readonly VITE_USE_MOCKS?: string;
   readonly VITE_DEV_USER?: string;
+  readonly VITE_GOOGLE_CLIENT_ID?: string;
 }

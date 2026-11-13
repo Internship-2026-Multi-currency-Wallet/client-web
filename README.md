@@ -65,15 +65,16 @@ built one at a time; give Docker at least 4 GiB if you run the whole stack. Deta
 One file with per-environment values (`local`, `staging`, `kvitka-uat`, `wisla-uat`), selected by `VITE_APP_ENV`.
 Each value can be overridden by its own `VITE_*` variable and has a safe default. See `.env.example`.
 
-| Variable                    | Default (`local`)               | Meaning                                                        |
-| --------------------------- | ------------------------------- | -------------------------------------------------------------- |
-| `VITE_APP_ENV`              | `local`                         | Environment profile                                            |
-| `VITE_CLIENT`               | `demo`                          | Client this build is for                                       |
-| `VITE_WALLET_CORE_URL`      | `http://localhost:3000/graphql` | wallet-core GraphQL endpoint                                   |
-| `VITE_RATES_SERVICE_URL`    | `http://localhost:3001/graphql` | rates-service GraphQL endpoint                                 |
-| `VITE_RATES_SERVICE_WS_URL` | `ws://localhost:3001/graphql`   | rates-service subscriptions (graphql-ws)                       |
-| `VITE_USE_MOCKS`            | `false`                         | `true` = MSW mocks instead of backends                         |
-| `VITE_DEV_USER`             | —                               | Dev auth user, e.g. `1:wallet` → `Authorization: Dev 1:wallet` |
+| Variable                    | Default (`local`)               | Meaning                                                               |
+| --------------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| `VITE_APP_ENV`              | `local`                         | Environment profile                                                   |
+| `VITE_CLIENT`               | `demo`                          | Client this build is for                                              |
+| `VITE_WALLET_CORE_URL`      | `http://localhost:3000/graphql` | wallet-core GraphQL endpoint                                          |
+| `VITE_RATES_SERVICE_URL`    | `http://localhost:3001/graphql` | rates-service GraphQL endpoint                                        |
+| `VITE_RATES_SERVICE_WS_URL` | `ws://localhost:3001/graphql`   | rates-service subscriptions (graphql-ws)                              |
+| `VITE_USE_MOCKS`            | `false`                         | `true` = MSW mocks instead of backends                                |
+| `VITE_DEV_USER`             | —                               | Dev auth user, e.g. `1:wallet` → `Authorization: Dev 1:wallet`        |
+| `VITE_GOOGLE_CLIENT_ID`     | — (no Google login)             | Google OAuth Client ID (public); see ops README, _Google login setup_ |
 
 Vite inlines these values at **build time**; the Docker image takes them as build args.
 

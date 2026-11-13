@@ -22,6 +22,8 @@ export interface AppConfig {
   useMocks: boolean;
   /** Dev auth user, e.g. `1:wallet` → `Authorization: Dev 1:wallet`. Empty = anonymous. */
   devUser: string | null;
+  /** Google OAuth Client ID for "Sign in with Google". Public (ends up in the bundle). `null` = not configured. */
+  googleClientId: string | null;
 }
 
 type EnvValues = Pick<
@@ -70,6 +72,7 @@ export function resolveConfig(env: RawEnv): AppConfig {
     ratesServiceWsUrl: str(env, 'VITE_RATES_SERVICE_WS_URL') ?? base.ratesServiceWsUrl,
     useMocks: str(env, 'VITE_USE_MOCKS') === 'true',
     devUser: str(env, 'VITE_DEV_USER') ?? null,
+    googleClientId: str(env, 'VITE_GOOGLE_CLIENT_ID') ?? null,
   };
 }
 
