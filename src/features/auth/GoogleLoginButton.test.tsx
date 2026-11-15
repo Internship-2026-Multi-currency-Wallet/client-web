@@ -32,6 +32,7 @@ describe('Continue with Google', () => {
     seedMockGoogleLink('1', 'demo.google@example.com');
     const google = stubGooglePopup();
     const { router } = await openLogin();
+    expect(googleButton().querySelector('img')).toHaveAttribute('src', '/icons/google.svg');
 
     await userEvent.click(googleButton());
     expect(googleButton()).toHaveTextContent('Waiting for Google…');
