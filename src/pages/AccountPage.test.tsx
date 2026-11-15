@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse } from 'msw';
+import { delay, HttpResponse } from 'msw';
 import { seedMockGoogleLink } from '../mocks/google-handlers';
 import { server } from '../mocks/server';
 import { signInForTest } from '../test/auth';
@@ -85,6 +85,27 @@ describe('AccountPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
     expect(linkButton()).toBeEnabled();
+  });
+
+  it('cancels the link when the user leaves the page', async () => {
+    let links = 0;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', () => {
+        links += 1;
+        return errorResponse('INVALID_GOOGLE_STATE');
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await google.authorizeUrl();
+    await userEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Home' }));
+
+    await screen.findByRole('heading', { name: 'Welcome' });
+    expect(google.popup.closed).toBe(true);
+    await google.approve('demo.google@example.com');
+    await delay(100);
+    expect(links).toBe(0);
   });
 
   it('unlinks only after confirmation', async () => {

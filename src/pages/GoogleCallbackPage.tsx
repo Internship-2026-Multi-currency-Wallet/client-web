@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router';
 import { usePageTitle } from '../features/branding/usePageTitle';
 import { postGoogleCallback } from '../features/auth/googlePopup';
 
-/** Google redirects the sign-in popup here; the page hands the result to the app window and closes. */
 export function GoogleCallbackPage() {
   usePageTitle('Google sign-in');
   const [params] = useSearchParams();

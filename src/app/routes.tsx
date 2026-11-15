@@ -65,7 +65,6 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
           { path: '*', element: <NotFoundPage /> },
         ],
       },
-      // The Google sign-in popup: no app chrome.
       { path: 'auth/google/callback', element: <GoogleCallbackPage /> },
       ...MOCK_ROUTES,
     ],

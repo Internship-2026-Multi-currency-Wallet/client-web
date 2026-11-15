@@ -23,7 +23,6 @@ import {
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso));
 
-/** Whether a Google account is linked, with Link and Unlink. */
 export function GoogleAccountCard() {
   const enabled = useGoogleSignInEnabled();
   const account = useGoogleAccountQuery();

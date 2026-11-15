@@ -4,7 +4,6 @@ import type { GraphQLRequestError } from '../../graphql/errors';
 
 /** Registered in the Google OAuth client for every client-web origin (ops README, "Google login setup"). */
 export const GOOGLE_CALLBACK_PATH = '/auth/google/callback';
-/** Stands in for Google's consent screen with `VITE_USE_MOCKS=true`. */
 export const MOCK_GOOGLE_PATH = '/auth/google/mock';
 
 const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -15,7 +14,6 @@ const CLOSE_GRACE_MS = 1000;
 // A started sign-in is valid for 10 minutes on wallet-core.
 const TIMEOUT_MS = 10 * 60 * 1000;
 
-/** Client-side failures, next to the wallet-core error codes. */
 export const GOOGLE_POPUP_ERRORS = {
   POPUP_BLOCKED: 'GOOGLE_POPUP_BLOCKED',
   POPUP_CLOSED: 'GOOGLE_POPUP_CLOSED',
@@ -27,7 +25,6 @@ type GoogleAuthStart = StartGoogleLoginMutation['startGoogleLogin'];
 
 const popupError = (code: string): GraphQLRequestError => ({ code, message: code });
 
-/** What Google sent back to the callback page. */
 export interface GoogleCallbackResult {
   state: string;
   code: string | null;
@@ -41,7 +38,7 @@ export const googleRedirectUri = (): string => location.origin + GOOGLE_CALLBACK
 
 /**
  * Call it straight from the click handler, before any `await`: browsers block pop-ups that are not opened
- * in response to a user action. The window stays blank until `signInWithGoogle` sends it to Google.
+ * in response to a user action.
  */
 export function openGooglePopup(): Window {
   const width = 500;
@@ -57,7 +54,7 @@ export function openGooglePopup(): Window {
   return popup;
 }
 
-/** Used by the callback page. A BroadcastChannel reaches only this origin and does not need `window.opener`. */
+/** A BroadcastChannel reaches only this origin and does not need `window.opener`. */
 export function postGoogleCallback(result: GoogleCallbackResult): void {
   const channel = new BroadcastChannel(CHANNEL);
   channel.postMessage(result);
@@ -93,7 +90,7 @@ function authorizeUrl(start: GoogleAuthStart, codeChallenge: string): string {
   return `${base}?${params}`;
 }
 
-function waitForCode(popup: Window, state: string): Promise<string> {
+function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     const channel = new BroadcastChannel(CHANNEL);
     const startedAt = Date.now();
@@ -102,9 +99,12 @@ function waitForCode(popup: Window, state: string): Promise<string> {
     const finish = (settle: () => void) => {
       clearInterval(timer);
       channel.close();
+      signal.removeEventListener('abort', onAbort);
       popup.close();
       settle();
     };
+    const onAbort = () => finish(() => reject(signal.reason));
+    signal.addEventListener('abort', onAbort);
 
     channel.onmessage = ({ data }: MessageEvent<GoogleCallbackResult>) => {
       if (data?.state !== state) return; // another tab's sign-in
@@ -134,18 +134,16 @@ function waitForCode(popup: Window, state: string): Promise<string> {
   });
 }
 
-/**
- * Runs Google's consent screen in `popup` (authorization code + PKCE) and returns the input for
- * `loginWithGoogle` / `linkGoogleAccount`. `start` is `startGoogleLogin` or `startGoogleLink`.
- */
 export async function signInWithGoogle(
   popup: Window,
   start: () => Promise<GoogleAuthStart>,
+  signal: AbortSignal,
 ): Promise<GoogleAuthInput> {
   try {
     const [started, { verifier, challenge }] = await Promise.all([start(), pkce()]);
+    signal.throwIfAborted();
     popup.location.href = authorizeUrl(started, challenge);
-    const code = await waitForCode(popup, started.state);
+    const code = await waitForCode(popup, started.state, signal);
     return { code, state: started.state, codeVerifier: verifier, redirectUri: googleRedirectUri() };
   } catch (error) {
     popup.close();

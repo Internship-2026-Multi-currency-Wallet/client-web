@@ -58,7 +58,6 @@ export function describeLoginError(error: Partial<GraphQLRequestError>): string 
   }
 }
 
-/** Errors that login and linking share; `null` = not one of them. */
 function describeGoogleCommonError(error: Partial<GraphQLRequestError>): string | null {
   switch (error.code) {
     case GOOGLE_POPUP_ERRORS.POPUP_CLOSED:

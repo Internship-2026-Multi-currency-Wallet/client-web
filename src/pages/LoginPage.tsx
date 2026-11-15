@@ -6,7 +6,7 @@ import { usePageTitle } from '../features/branding/usePageTitle';
 import { selectAuthStatus, selectUser } from '../features/auth/authSlice';
 import { describeLoginError } from '../features/auth/authErrors';
 import { useLoginMutation } from '../features/auth/authApi';
-import { useGoogleSignInEnabled } from '../features/auth/googleApi';
+import { useGoogleLogin, useGoogleSignInEnabled } from '../features/auth/googleApi';
 import { GoogleLoginButton } from '../features/auth/GoogleLoginButton';
 import { LoginForm } from '../features/auth/LoginForm';
 
@@ -28,6 +28,8 @@ export function LoginPage() {
   const user = useAppSelector(selectUser);
   const restoring = useAppSelector(selectAuthStatus) === 'restoring';
   const googleEnabled = useGoogleSignInEnabled();
+  // One login at a time: the password form and Google wait for each other.
+  const google = useGoogleLogin();
   const state = useLocation().state as LoginLocationState | null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -57,13 +59,14 @@ export function LoginPage() {
           <LoginForm
             onSubmit={(input) => void login(input)}
             isSubmitting={isLoading}
+            disabled={google.isPending}
             serverError={error ? describeLoginError(error) : null}
             onEdit={reset}
           />
           {googleEnabled && (
             <>
               <Divider sx={{ my: 2 }}>or</Divider>
-              <GoogleLoginButton />
+              <GoogleLoginButton flow={google} disabled={isLoading} />
             </>
           )}
         </CardContent>

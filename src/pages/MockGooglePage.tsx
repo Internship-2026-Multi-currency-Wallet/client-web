@@ -3,10 +3,6 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { mockGoogleCode } from '../mocks/google-handlers';
 
-/**
- * Google's consent screen in mock mode (`VITE_USE_MOCKS=true` only; see `routes.tsx`): pick the Google email,
- * and the popup goes back to the callback with a code the MSW handlers accept.
- */
 export function MockGooglePage() {
   const [params] = useSearchParams();
   const [email, setEmail] = useState('demo.google@example.com');

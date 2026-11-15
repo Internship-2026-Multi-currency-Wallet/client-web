@@ -1,10 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse } from 'msw';
+import { delay, HttpResponse } from 'msw';
 import type { LoginWithGoogleMutationVariables } from '../../gql/wallet-core/graphql';
 import { loadSession } from '../../graphql/session';
 import { seedMockGoogleLink } from '../../mocks/google-handlers';
 import { server } from '../../mocks/server';
+import { OTHER_USER, otherTab, testSession } from '../../test/auth';
 import { googleLoginOff, stubGooglePopup } from '../../test/google';
 import { errorResponse, walletCore } from '../../test/graphql-handlers';
 import { renderApp } from '../../test/render';
@@ -155,6 +156,82 @@ describe('Continue with Google', () => {
     );
     expect(consoleError).toHaveBeenCalled();
     expect(google.popup.closed).toBe(true);
+  });
+
+  it('locks the password form while the Google window is open', async () => {
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+
+    expect(screen.getByLabelText(/^email/i)).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^log in$/i })).toBeDisabled();
+    await google.closeByUser();
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText(/^email/i)).toBeEnabled();
+  });
+
+  it('waits while a password login is running', async () => {
+    server.use(
+      walletCore.mutation('Login', async () => {
+        await delay(200);
+        return errorResponse('INVALID_CREDENTIALS');
+      }),
+    );
+    await openLogin();
+    await userEvent.type(screen.getByLabelText(/^email/i), 'demo@example.com');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'Wrong1234!');
+    await userEvent.click(screen.getByRole('button', { name: /^log in$/i }));
+
+    expect(googleButton()).toBeDisabled();
+    await screen.findByRole('alert');
+    expect(googleButton()).toBeEnabled();
+  });
+
+  it('never replaces a session that started while the Google window was open', async () => {
+    let exchanges = 0;
+    server.use(
+      walletCore.mutation('LoginWithGoogle', () => {
+        exchanges += 1;
+        return errorResponse('GOOGLE_ACCOUNT_NOT_LINKED');
+      }),
+    );
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    await google.authorizeUrl();
+
+    // Another tab logs in: this page leaves the login screen and cancels the Google sign-in.
+    otherTab.write(testSession(OTHER_USER));
+    otherTab.notify();
+    expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
+    expect(google.popup.closed).toBe(true);
+
+    await google.approve('demo.google@example.com');
+    await delay(100);
+    expect(exchanges).toBe(0);
+    expect(loadSession()?.user.id).toBe(OTHER_USER.id);
+  });
+
+  it('cancels the Google sign-in when the user leaves the login page', async () => {
+    let exchanges = 0;
+    server.use(
+      walletCore.mutation('LoginWithGoogle', () => {
+        exchanges += 1;
+        return errorResponse('GOOGLE_ACCOUNT_NOT_LINKED');
+      }),
+    );
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    await google.authorizeUrl();
+    await userEvent.click(screen.getByRole('link', { name: 'Sign up' }));
+
+    await screen.findByRole('heading', { name: 'Create account' });
+    expect(google.popup.closed).toBe(true);
+    await google.approve('demo.google@example.com');
+    await delay(100);
+    expect(exchanges).toBe(0);
+    expect(loadSession()).toBeNull();
   });
 
   it('is not offered when auth.googleLogin is off', async () => {

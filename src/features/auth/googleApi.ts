@@ -1,13 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, graphqlQuery } from '../../app/api';
-import type {
-  GoogleAccountQuery,
-  GoogleAuthInput,
-  StartGoogleLoginMutation,
-} from '../../gql/wallet-core/graphql';
-import type { GraphQLRequestError } from '../../graphql/errors';
+import { useAppDispatch } from '../../app/store';
+import type { GoogleAccountQuery } from '../../gql/wallet-core/graphql';
+import { type GraphQLRequestError, toRequestError } from '../../graphql/errors';
 import { request, type RequestOptions } from '../../graphql/client';
-import { saveSession, sessionFromPayload, type SessionUser } from '../../graphql/session';
+import { loadSession, saveSession, sessionFromPayload } from '../../graphql/session';
 import { useClientSetting } from '../settings/useClientSetting';
 import {
   googleAccountQuery,
@@ -23,7 +20,6 @@ import { isGoogleSignInConfigured, openGooglePopup, signInWithGoogle } from './g
 const NO_SESSION_RETRY: RequestOptions = { retryOnUnauthenticated: false };
 
 type LinkedAccount = NonNullable<GoogleAccountQuery['googleAccount']>;
-type GoogleAuthStart = StartGoogleLoginMutation['startGoogleLogin'];
 
 export const googleApi = api.enhanceEndpoints({ addTagTypes: ['GoogleAccount'] }).injectEndpoints({
   endpoints: (build) => ({
@@ -31,47 +27,6 @@ export const googleApi = api.enhanceEndpoints({ addTagTypes: ['GoogleAccount'] }
       queryFn: () =>
         graphqlQuery(async () => (await request('walletCore', googleAccountQuery)).googleAccount),
       providesTags: ['GoogleAccount'],
-    }),
-    startGoogleLogin: build.mutation<GoogleAuthStart, void>({
-      queryFn: () =>
-        graphqlQuery(
-          async () =>
-            (await request('walletCore', startGoogleLoginMutation, undefined, NO_SESSION_RETRY))
-              .startGoogleLogin,
-        ),
-    }),
-    loginWithGoogle: build.mutation<SessionUser, GoogleAuthInput>({
-      queryFn: (input) =>
-        graphqlQuery(async () => {
-          const { loginWithGoogle } = await request(
-            'walletCore',
-            loginWithGoogleMutation,
-            { input },
-            NO_SESSION_RETRY,
-          );
-          const session = sessionFromPayload(loginWithGoogle);
-          saveSession(session);
-          return session.user;
-        }),
-    }),
-    startGoogleLink: build.mutation<GoogleAuthStart, void>({
-      queryFn: () =>
-        graphqlQuery(
-          async () => (await request('walletCore', startGoogleLinkMutation)).startGoogleLink,
-        ),
-    }),
-    linkGoogleAccount: build.mutation<LinkedAccount, GoogleAuthInput>({
-      queryFn: (input) =>
-        graphqlQuery(
-          async () =>
-            (await request('walletCore', linkGoogleAccountMutation, { input })).linkGoogleAccount,
-        ),
-      // On an error the link may have changed elsewhere (e.g. GOOGLE_ACCOUNT_ALREADY_LINKED): reload it.
-      invalidatesTags: (_result, error) => (error ? ['GoogleAccount'] : []),
-      async onQueryStarted(_input, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled.catch(() => ({ data: undefined }));
-        if (data) dispatch(googleApi.util.upsertQueryData('googleAccount', undefined, data));
-      },
     }),
     unlinkGoogleAccount: build.mutation<boolean, void>({
       queryFn: () =>
@@ -87,22 +42,24 @@ export const googleApi = api.enhanceEndpoints({ addTagTypes: ['GoogleAccount'] }
   }),
 });
 
-export const {
-  useGoogleAccountQuery,
-  useStartGoogleLoginMutation,
-  useLoginWithGoogleMutation,
-  useStartGoogleLinkMutation,
-  useLinkGoogleAccountMutation,
-  useUnlinkGoogleAccountMutation,
-} = googleApi;
+export const { useGoogleAccountQuery, useUnlinkGoogleAccountMutation } = googleApi;
 
 /** The backend switch (`auth.googleLogin`) and this build's Google client must both be there. */
 export function useGoogleSignInEnabled(): boolean {
   return useClientSetting('auth.googleLogin') && isGoogleSignInConfigured();
 }
 
+/** Server failures become plain `GraphQLRequestError`s, so `toFlowError` can tell them from browser exceptions. */
+async function serverCall<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    throw toRequestError(error);
+  }
+}
+
 function toFlowError(error: unknown): GraphQLRequestError {
-  // Server answers (RTK Query `unwrap`) and the popup errors are plain objects; exceptions never are.
+  // Server answers and the popup errors are plain objects; exceptions never are.
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -123,10 +80,14 @@ export interface GoogleFlow {
   reset: () => void;
 }
 
-/** Opens the popup on `start()` (in the click) and runs `flow` with it; errors are kept for the UI. */
-function useGoogleFlow(flow: (popup: Window) => Promise<unknown>): GoogleFlow {
+function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unknown>): GoogleFlow {
   const [isPending, setPending] = useState(false);
   const [error, setError] = useState<GraphQLRequestError | null>(null);
+  const [running] = useState(() => new Set<AbortController>());
+
+  // Leaving the page (another login, another user, navigation) cancels the sign-in: its popup closes
+  // and its code is never exchanged.
+  useEffect(() => () => running.forEach((controller) => controller.abort()), [running]);
 
   const start = () => {
     if (isPending) return;
@@ -138,34 +99,66 @@ function useGoogleFlow(flow: (popup: Window) => Promise<unknown>): GoogleFlow {
       setError(toFlowError(failure));
       return;
     }
+    const controller = new AbortController();
+    running.add(controller);
     setPending(true);
-    flow(popup).then(
-      () => setPending(false),
-      (failure: unknown) => {
-        setPending(false);
-        setError(toFlowError(failure));
-      },
-    );
+    flow(popup, controller.signal)
+      .catch((failure: unknown) => {
+        if (!controller.signal.aborted) setError(toFlowError(failure));
+      })
+      .finally(() => {
+        running.delete(controller);
+        if (!controller.signal.aborted) setPending(false);
+      });
   };
 
   return { start, isPending, error, reset: () => setError(null) };
 }
 
-/** On success the session is saved, so the login page redirects like after a password login. */
 export function useGoogleLogin(): GoogleFlow {
-  const [startLogin] = useStartGoogleLoginMutation();
-  const [login] = useLoginWithGoogleMutation();
-  return useGoogleFlow(async (popup) => {
-    const input = await signInWithGoogle(popup, () => startLogin().unwrap());
-    await login(input).unwrap();
+  return useGoogleFlow(async (popup, signal) => {
+    const input = await signInWithGoogle(
+      popup,
+      () =>
+        serverCall(
+          async () =>
+            (await request('walletCore', startGoogleLoginMutation, undefined, NO_SESSION_RETRY))
+              .startGoogleLogin,
+        ),
+      signal,
+    );
+    // Someone signed in meanwhile (e.g. in another tab): that session wins.
+    const stale = () => signal.aborted || loadSession() !== null;
+    if (stale()) return;
+    const { loginWithGoogle } = await serverCall(() =>
+      request('walletCore', loginWithGoogleMutation, { input }, NO_SESSION_RETRY),
+    );
+    if (stale()) return;
+    saveSession(sessionFromPayload(loginWithGoogle));
   });
 }
 
 export function useGoogleLink(): GoogleFlow {
-  const [startLink] = useStartGoogleLinkMutation();
-  const [link] = useLinkGoogleAccountMutation();
-  return useGoogleFlow(async (popup) => {
-    const input = await signInWithGoogle(popup, () => startLink().unwrap());
-    await link(input).unwrap();
+  const dispatch = useAppDispatch();
+  return useGoogleFlow(async (popup, signal) => {
+    const input = await signInWithGoogle(
+      popup,
+      () =>
+        serverCall(
+          async () => (await request('walletCore', startGoogleLinkMutation)).startGoogleLink,
+        ),
+      signal,
+    );
+    if (signal.aborted) return;
+    try {
+      const { linkGoogleAccount } = await serverCall(() =>
+        request('walletCore', linkGoogleAccountMutation, { input }),
+      );
+      dispatch(googleApi.util.upsertQueryData('googleAccount', undefined, linkGoogleAccount));
+    } catch (error) {
+      // The link may have changed elsewhere (e.g. GOOGLE_ACCOUNT_ALREADY_LINKED): reload it.
+      dispatch(googleApi.util.invalidateTags(['GoogleAccount']));
+      throw error;
+    }
   });
 }

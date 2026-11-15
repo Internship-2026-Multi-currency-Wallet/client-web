@@ -95,7 +95,6 @@ function clearStateCookie(): void {
   document.cookie = `${STATE_COOKIE}=; path=/; max-age=0`;
 }
 
-/** Tests: an existing link, as `linkGoogleAccount` would leave it. */
 export function seedMockGoogleLink(userId: string, googleEmail: string): void {
   const email = googleEmail.toLowerCase();
   const link: MockLink = {
