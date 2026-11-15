@@ -7,7 +7,7 @@ import { GoogleAccountCard } from '../features/auth/GoogleAccountCard';
 export function AccountPage() {
   usePageTitle('Account settings');
   const user = useAppSelector(selectUser);
-  if (!user) return null; // RequireAuth renders this page for a signed-in user only
+  if (!user) return null;
 
   return (
     <Stack spacing={3}>

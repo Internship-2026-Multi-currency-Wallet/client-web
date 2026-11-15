@@ -139,6 +139,8 @@ export async function signInWithGoogle(
   start: () => Promise<GoogleAuthStart>,
   signal: AbortSignal,
 ): Promise<GoogleAuthInput> {
+  const closePopup = () => popup.close();
+  signal.addEventListener('abort', closePopup);
   try {
     const [started, { verifier, challenge }] = await Promise.all([start(), pkce()]);
     signal.throwIfAborted();
@@ -148,5 +150,7 @@ export async function signInWithGoogle(
   } catch (error) {
     popup.close();
     throw error;
+  } finally {
+    signal.removeEventListener('abort', closePopup);
   }
 }

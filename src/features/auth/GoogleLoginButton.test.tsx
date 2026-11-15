@@ -234,6 +234,25 @@ describe('Continue with Google', () => {
     expect(loadSession()).toBeNull();
   });
 
+  it('closes the popup at once when the user leaves while the sign-in is starting', async () => {
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    server.use(
+      walletCore.mutation('StartGoogleLogin', async () => {
+        await answered;
+        return errorResponse('GOOGLE_LOGIN_DISABLED');
+      }),
+    );
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    await userEvent.click(screen.getByRole('link', { name: 'Sign up' }));
+
+    await screen.findByRole('heading', { name: 'Create account' });
+    expect(google.popup.closed).toBe(true);
+    answer();
+  });
+
   it('is not offered when auth.googleLogin is off', async () => {
     googleLoginOff();
     await openLogin();
