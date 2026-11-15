@@ -119,13 +119,15 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   Application → Service Workers → "Bypass for network" is off.
 - With `VITE_USE_MOCKS=true` the mock user is `demo@example.com` / `Demo1234!`; accounts you register stay until the
   tab is closed (use fake passwords). 5 wrong passwords lock the mock account for 15 minutes.
-- **Sign in with Google in mock mode:** there is no Google and no redirect. Call `StartGoogleLink` /
-  `StartGoogleLogin`, then call `LinkGoogleAccount` / `LoginWithGoogle` straight away with the `state` you got back,
-  `redirectUri` = an allowed origin + `/auth/google/callback`, and `code = mockGoogleCode('<any Google email>')`
-  (`src/mocks/google-handlers.ts`). That is what the callback route will do once the UI subtask adds it. A Google
-  email starting with `unverified` answers `GOOGLE_EMAIL_NOT_VERIFIED`; any other code answers `INVALID_GOOGLE_CODE`.
-  The started sign-in lives in a `google_auth_state` cookie, as on the backend, except that JavaScript cannot make it
-  httpOnly; mock links live in the tab's `sessionStorage`.
+- **Sign in with Google** (when `auth.googleLogin` is on and the build has `VITE_GOOGLE_CLIENT_ID` or mocks):
+  "Continue with Google" on `/login`; link and unlink on `/account`. A popup runs Google's authorization-code flow
+  with PKCE (`src/features/auth/googlePopup.ts`): `startGoogleLogin` / `startGoogleLink` → Google →
+  `/auth/google/callback`, which hands `code` and `state` to the app window over a `BroadcastChannel` and closes →
+  `loginWithGoogle` / `linkGoogleAccount`. The popup is opened in the click itself, so browsers do not block it.
+- **Google in mock mode:** the popup shows a mock Google screen (`/auth/google/mock`, mock builds only) where you type
+  any Google email. An email starting with `unverified` answers `GOOGLE_EMAIL_NOT_VERIFIED`. The started sign-in
+  lives in a `google_auth_state` cookie, as on the backend, except that JavaScript cannot make it httpOnly; mock links
+  live in the tab's `sessionStorage`. Tests link an account directly with `seedMockGoogleLink`.
 - **Known mock limitation (mock mode only, not a production behaviour):** the mock accounts live in each tab's own
   `sessionStorage`, while the session and the mock refresh cookie are shared by all tabs. An account registered in
   one tab is therefore unknown to a second, independently opened tab: logging in there fails, and a refresh of that
