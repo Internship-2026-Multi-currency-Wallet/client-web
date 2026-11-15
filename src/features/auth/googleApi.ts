@@ -102,11 +102,18 @@ export function useGoogleSignInEnabled(): boolean {
 }
 
 function toFlowError(error: unknown): GraphQLRequestError {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
+  // Server answers (RTK Query `unwrap`) and the popup errors are plain objects; exceptions never are.
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    Object.getPrototypeOf(error) === Object.prototype &&
+    'message' in error
+  ) {
     return error as GraphQLRequestError;
   }
-  // Not a server answer (e.g. crypto failed): `CLIENT_ERROR` keeps it from reading as "server unreachable".
-  return { code: 'CLIENT_ERROR', message: String(error) };
+  // A browser exception: `CLIENT_ERROR` keeps it from reading as "server unreachable"; the console keeps the cause.
+  console.error('Google sign-in failed in the browser', error);
+  return { code: 'CLIENT_ERROR', message: error instanceof Error ? error.message : String(error) };
 }
 
 export interface GoogleFlow {

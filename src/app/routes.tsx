@@ -30,6 +30,7 @@ const MOCK_ROUTES: RouteObject[] =
           lazy: async () => ({
             Component: (await import('../pages/MockGooglePage')).MockGooglePage,
           }),
+          HydrateFallback: () => null,
         },
       ]
     : [];

@@ -142,6 +142,21 @@ describe('Continue with Google', () => {
     await waitFor(() => expect(google.popup.closed).toBe(true));
   });
 
+  it('does not blame the server for a failure in the browser', async () => {
+    // E.g. `crypto.subtle` missing outside a secure context.
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new TypeError('boom'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong. Please try again.',
+    );
+    expect(consoleError).toHaveBeenCalled();
+    expect(google.popup.closed).toBe(true);
+  });
+
   it('is not offered when auth.googleLogin is off', async () => {
     googleLoginOff();
     await openLogin();
