@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import type { RouteObject } from 'react-router';
+import { config } from '../config-env';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
+import { AccountPage } from '../pages/AccountPage';
+import { GoogleCallbackPage } from '../pages/GoogleCallbackPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -17,6 +20,19 @@ const PRODUCTS: Record<string, Product> = {
 };
 
 const HOME: MenuItem = { path: '/', label: 'Home' };
+
+// The literal `import.meta.env` check lets Vite drop the mock page (and MSW) from builds without mocks.
+const MOCK_ROUTES: RouteObject[] =
+  import.meta.env.VITE_USE_MOCKS === 'true' && config.useMocks
+    ? [
+        {
+          path: 'auth/google/mock',
+          lazy: async () => ({
+            Component: (await import('../pages/MockGooglePage')).MockGooglePage,
+          }),
+        },
+      ]
+    : [];
 
 export interface AppRoutes {
   routes: RouteObject[];
@@ -39,6 +55,7 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
             element: <RequireAuth />,
             children: [
               { index: true, element: <HomePage /> },
+              { path: 'account', element: <AccountPage /> },
               ...products.map(({ path, element }) => ({ path, element })),
             ],
           },
@@ -47,6 +64,9 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
           { path: '*', element: <NotFoundPage /> },
         ],
       },
+      // The Google sign-in popup: no app chrome.
+      { path: 'auth/google/callback', element: <GoogleCallbackPage /> },
+      ...MOCK_ROUTES,
     ],
   };
 }

@@ -1,4 +1,4 @@
-import { Alert, Card, CardContent, Link, Stack, Typography } from '@mui/material';
+import { Alert, Card, CardContent, Divider, Link, Stack, Typography } from '@mui/material';
 import { useEffect, useRef } from 'react';
 import { Link as RouterLink, Navigate, useLocation } from 'react-router';
 import { useAppSelector } from '../app/store';
@@ -6,6 +6,8 @@ import { usePageTitle } from '../features/branding/usePageTitle';
 import { selectAuthStatus, selectUser } from '../features/auth/authSlice';
 import { describeLoginError } from '../features/auth/authErrors';
 import { useLoginMutation } from '../features/auth/authApi';
+import { useGoogleSignInEnabled } from '../features/auth/googleApi';
+import { GoogleLoginButton } from '../features/auth/GoogleLoginButton';
 import { LoginForm } from '../features/auth/LoginForm';
 
 interface LoginLocationState {
@@ -25,6 +27,7 @@ export function LoginPage() {
   const [login, { isLoading, error, reset }] = useLoginMutation();
   const user = useAppSelector(selectUser);
   const restoring = useAppSelector(selectAuthStatus) === 'restoring';
+  const googleEnabled = useGoogleSignInEnabled();
   const state = useLocation().state as LoginLocationState | null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -57,6 +60,12 @@ export function LoginPage() {
             serverError={error ? describeLoginError(error) : null}
             onEdit={reset}
           />
+          {googleEnabled && (
+            <>
+              <Divider sx={{ my: 2 }}>or</Divider>
+              <GoogleLoginButton />
+            </>
+          )}
         </CardContent>
       </Card>
       <Typography variant="body2" color="text.secondary">

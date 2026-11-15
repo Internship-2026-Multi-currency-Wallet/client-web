@@ -1,5 +1,6 @@
 import type { GraphQLRequestError } from '../../graphql/errors';
 import { INVALID_REFRESH_TOKEN } from '../../graphql/refresh';
+import { GOOGLE_POPUP_ERRORS } from './googlePopup';
 import { PASSWORD_HINT, PHONE_HINT } from './validation';
 
 /** Same values as `AuthErrorCode` in wallet-core. */
@@ -54,6 +55,50 @@ export function describeLoginError(error: Partial<GraphQLRequestError>): string 
     }
     default:
       return unknownError(error);
+  }
+}
+
+/** Errors that login and linking share; `null` = not one of them. */
+function describeGoogleCommonError(error: Partial<GraphQLRequestError>): string | null {
+  switch (error.code) {
+    case GOOGLE_POPUP_ERRORS.POPUP_CLOSED:
+      return 'Google sign-in was cancelled.';
+    case GOOGLE_POPUP_ERRORS.POPUP_BLOCKED:
+      return 'Your browser blocked the Google window. Allow pop-ups for this site and try again.';
+    case GOOGLE_POPUP_ERRORS.TIMEOUT:
+      return 'Google sign-in took too long. Please try again.';
+    case GOOGLE_POPUP_ERRORS.FAILED:
+    case AUTH_ERROR_CODES.INVALID_GOOGLE_STATE:
+    case AUTH_ERROR_CODES.INVALID_GOOGLE_CODE:
+      return 'Google sign-in failed or expired. Please try again.';
+    case AUTH_ERROR_CODES.GOOGLE_EMAIL_NOT_VERIFIED:
+      return 'The email of this Google account is not verified.';
+    case AUTH_ERROR_CODES.GOOGLE_LOGIN_DISABLED:
+      return 'Sign-in with Google is not available right now.';
+    default:
+      return null;
+  }
+}
+
+export function describeGoogleLoginError(error: Partial<GraphQLRequestError>): string {
+  switch (error.code) {
+    case AUTH_ERROR_CODES.GOOGLE_ACCOUNT_NOT_LINKED:
+      return 'This Google account is not linked to any account. Log in with your email and password, then link Google in your account settings.';
+    case AUTH_ERROR_CODES.ACCOUNT_LOCKED:
+      return describeLoginError(error);
+    default:
+      return describeGoogleCommonError(error) ?? unknownError(error);
+  }
+}
+
+export function describeGoogleLinkError(error: Partial<GraphQLRequestError>): string {
+  switch (error.code) {
+    case AUTH_ERROR_CODES.GOOGLE_ACCOUNT_LINKED_TO_ANOTHER_USER:
+      return 'This Google account is already linked to another user.';
+    case AUTH_ERROR_CODES.GOOGLE_ACCOUNT_ALREADY_LINKED:
+      return 'Another Google account is already linked. Unlink it first.';
+    default:
+      return describeGoogleCommonError(error) ?? unknownError(error);
   }
 }
 

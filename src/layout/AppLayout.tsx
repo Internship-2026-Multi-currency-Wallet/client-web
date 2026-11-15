@@ -34,6 +34,9 @@ export function AppLayout({ menuItems }: { menuItems: MenuItem[] }) {
               <Typography variant="body2" sx={{ mx: 2 }}>
                 {user.email}
               </Typography>
+              <Button color="inherit" component={RouterLink} to="/account">
+                Account
+              </Button>
               <Button color="inherit" onClick={() => void logout()}>
                 Log out
               </Button>
