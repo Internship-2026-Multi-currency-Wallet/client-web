@@ -23,20 +23,21 @@ type LinkedAccount = NonNullable<GoogleAccountQuery['googleAccount']>;
 
 export const googleApi = api.enhanceEndpoints({ addTagTypes: ['GoogleAccount'] }).injectEndpoints({
   endpoints: (build) => ({
-    googleAccount: build.query<LinkedAccount | null, void>({
+    // Keyed by user id: a late answer for one user can never show up for another.
+    googleAccount: build.query<LinkedAccount | null, string>({
       queryFn: () =>
         graphqlQuery(async () => (await request('walletCore', googleAccountQuery)).googleAccount),
       providesTags: ['GoogleAccount'],
     }),
-    unlinkGoogleAccount: build.mutation<boolean, void>({
+    unlinkGoogleAccount: build.mutation<boolean, string>({
       queryFn: () =>
         graphqlQuery(
           async () =>
             (await request('walletCore', unlinkGoogleAccountMutation)).unlinkGoogleAccount,
         ),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+      async onQueryStarted(userId, { dispatch, queryFulfilled }) {
         const { data } = await queryFulfilled.catch(() => ({ data: undefined }));
-        if (data) dispatch(googleApi.util.upsertQueryData('googleAccount', undefined, null));
+        if (data) dispatch(googleApi.util.upsertQueryData('googleAccount', userId, null));
       },
     }),
   }),
@@ -44,7 +45,6 @@ export const googleApi = api.enhanceEndpoints({ addTagTypes: ['GoogleAccount'] }
 
 export const { useGoogleAccountQuery, useUnlinkGoogleAccountMutation } = googleApi;
 
-/** The backend switch (`auth.googleLogin`) and this build's Google client must both be there. */
 export function useGoogleSignInEnabled(): boolean {
   return useClientSetting('auth.googleLogin') && isGoogleSignInConfigured();
 }
@@ -138,7 +138,7 @@ export function useGoogleLogin(): GoogleFlow {
   });
 }
 
-export function useGoogleLink(): GoogleFlow {
+export function useGoogleLink(userId: string): GoogleFlow {
   const dispatch = useAppDispatch();
   return useGoogleFlow(async (popup, signal) => {
     const input = await signInWithGoogle(
@@ -154,8 +154,10 @@ export function useGoogleLink(): GoogleFlow {
       const { linkGoogleAccount } = await serverCall(() =>
         request('walletCore', linkGoogleAccountMutation, { input }),
       );
-      dispatch(googleApi.util.upsertQueryData('googleAccount', undefined, linkGoogleAccount));
+      if (signal.aborted) return;
+      dispatch(googleApi.util.upsertQueryData('googleAccount', userId, linkGoogleAccount));
     } catch (error) {
+      if (signal.aborted) return;
       // The link may have changed elsewhere (e.g. GOOGLE_ACCOUNT_ALREADY_LINKED): reload it.
       dispatch(googleApi.util.invalidateTags(['GoogleAccount']));
       throw error;

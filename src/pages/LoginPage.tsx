@@ -28,7 +28,6 @@ export function LoginPage() {
   const user = useAppSelector(selectUser);
   const restoring = useAppSelector(selectAuthStatus) === 'restoring';
   const googleEnabled = useGoogleSignInEnabled();
-  // One login at a time: the password form and Google wait for each other.
   const google = useGoogleLogin();
   const state = useLocation().state as LoginLocationState | null;
   const headingRef = useRef<HTMLHeadingElement>(null);

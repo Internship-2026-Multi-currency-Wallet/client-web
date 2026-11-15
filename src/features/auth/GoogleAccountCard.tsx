@@ -23,10 +23,10 @@ import {
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso));
 
-export function GoogleAccountCard() {
+export function GoogleAccountCard({ userId }: { userId: string }) {
   const enabled = useGoogleSignInEnabled();
-  const account = useGoogleAccountQuery();
-  const link = useGoogleLink();
+  const account = useGoogleAccountQuery(userId);
+  const link = useGoogleLink(userId);
   const [unlink, unlinking] = useUnlinkGoogleAccountMutation();
   const [confirming, setConfirming] = useState(false);
   const busy = link.isPending || unlinking.isLoading || account.isFetching;
@@ -39,7 +39,7 @@ export function GoogleAccountCard() {
   const confirmUnlink = () => {
     setConfirming(false);
     link.reset();
-    void unlink();
+    void unlink(userId);
   };
 
   return (

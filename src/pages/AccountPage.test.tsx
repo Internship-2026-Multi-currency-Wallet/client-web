@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import { seedMockGoogleLink } from '../mocks/google-handlers';
 import { server } from '../mocks/server';
-import { signInForTest } from '../test/auth';
+import { OTHER_USER, otherTab, signInForTest, testSession } from '../test/auth';
 import { googleLoginOff, stubGooglePopup } from '../test/google';
 import { errorResponse, walletCore } from '../test/graphql-handlers';
 import { renderApp } from '../test/render';
@@ -106,6 +106,42 @@ describe('AccountPage', () => {
     await google.approve('demo.google@example.com');
     await delay(100);
     expect(links).toBe(0);
+  });
+
+  it('never shows a link that finished after the user changed to the next user', async () => {
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    let linkCalled = false;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', async () => {
+        linkCalled = true;
+        await answered;
+        return HttpResponse.json({
+          data: {
+            linkGoogleAccount: {
+              email: 'demo.google@example.com',
+              linkedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await google.approve('demo.google@example.com');
+    await waitFor(() => expect(linkCalled).toBe(true));
+
+    // Another tab switches to the next user while the link request is still running.
+    otherTab.write(testSession(OTHER_USER));
+    otherTab.notify();
+    await screen.findByText(OTHER_USER.email);
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+    answer();
+    await delay(100);
+
+    expect(screen.queryByText('demo.google@example.com')).not.toBeInTheDocument();
+    expect(screen.getByText(/^Not linked/)).toBeInTheDocument();
   });
 
   it('unlinks only after confirmation', async () => {
