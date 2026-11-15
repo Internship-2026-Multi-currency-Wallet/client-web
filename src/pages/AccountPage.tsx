@@ -14,7 +14,7 @@ export function AccountPage() {
       <Typography variant="h4" component="h1">
         Account settings
       </Typography>
-      <GoogleAccountCard userId={user.id} />
+      <GoogleAccountCard key={user.id} userId={user.id} />
     </Stack>
   );
 }

@@ -29,6 +29,8 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
   const link = useGoogleLink(userId);
   const [unlink, unlinking] = useUnlinkGoogleAccountMutation();
   const [confirming, setConfirming] = useState(false);
+  // `currentData`, not `data`: `data` keeps the previous user's answer while this user's one loads.
+  const linked = account.currentData;
   const busy = link.isPending || unlinking.isLoading || account.isFetching;
 
   const startLink = () => {
@@ -50,7 +52,9 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
             Google sign-in
           </Typography>
 
-          {account.isLoading && <Typography role="status">Loading…</Typography>}
+          {linked === undefined && account.isFetching && (
+            <Typography role="status">Loading…</Typography>
+          )}
           {account.error && (
             <Alert
               severity="error"
@@ -64,13 +68,12 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
             </Alert>
           )}
 
-          {account.data && (
+          {linked && (
             <Typography>
-              Linked to <strong>{account.data.email}</strong> since{' '}
-              {formatDate(account.data.linkedAt)}.
+              Linked to <strong>{linked.email}</strong> since {formatDate(linked.linkedAt)}.
             </Typography>
           )}
-          {account.data === null && (
+          {linked === null && (
             <Typography>
               {enabled
                 ? 'Not linked. Link a Google account to log in with it.'
@@ -83,12 +86,12 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
             <Alert severity="error">Could not unlink the Google account. Please try again.</Alert>
           )}
 
-          {account.data === null && enabled && (
+          {linked === null && enabled && (
             <Button variant="contained" onClick={startLink} disabled={busy}>
               {link.isPending ? 'Waiting for Google…' : 'Link Google account'}
             </Button>
           )}
-          {account.data && (
+          {linked && (
             <Button
               variant="outlined"
               color="error"
@@ -105,8 +108,8 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
         <DialogTitle>Unlink Google account?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You will no longer be able to log in with {account.data?.email}. You will also be logged
-            out on your other devices.
+            You will no longer be able to log in with {linked?.email}. You will also be logged out
+            on your other devices.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
