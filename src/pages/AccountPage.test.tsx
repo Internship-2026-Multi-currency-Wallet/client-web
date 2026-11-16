@@ -88,6 +88,37 @@ describe('AccountPage', () => {
     expect(linkButton()).toBeEnabled();
   });
 
+  it('shows the account as linked when the user cancels after the link was already sent', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let sent = false;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', async () => {
+        sent = true;
+        await gate;
+        return HttpResponse.json({
+          data: {
+            linkGoogleAccount: {
+              email: 'late@example.com',
+              linkedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await google.approve('late@example.com');
+    await waitFor(() => expect(sent).toBe(true));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    release();
+
+    expect(await screen.findByText('late@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link Google account' })).not.toBeInTheDocument();
+  });
+
   it('cancels the link when the user leaves the page', async () => {
     let links = 0;
     server.use(

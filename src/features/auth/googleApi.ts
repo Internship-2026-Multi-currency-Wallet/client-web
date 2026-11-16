@@ -169,10 +169,9 @@ export function useGoogleLink(userId: string): GoogleFlow {
       const { linkGoogleAccount } = await serverCall(() =>
         request('walletCore', linkGoogleAccountMutation, { input }),
       );
-      if (signal.aborted) return;
+      // Cancelling hides the feedback, not the result: the mutation is already on the server.
       dispatch(googleApi.util.upsertQueryData('googleAccount', userId, linkGoogleAccount));
     } catch (error) {
-      if (signal.aborted) return;
       // The link may have changed elsewhere (e.g. GOOGLE_ACCOUNT_ALREADY_LINKED): reload it.
       dispatch(googleApi.util.invalidateTags(['GoogleAccount']));
       throw error;
