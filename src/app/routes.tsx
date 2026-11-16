@@ -1,22 +1,19 @@
-import type { ReactNode } from 'react';
 import type { RouteObject } from 'react-router';
 import { config } from '../config-env';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
-import { AccountPage } from '../pages/AccountPage';
-import { GoogleCallbackPage } from '../pages/GoogleCallbackPage';
-import { HomePage } from '../pages/HomePage';
-import { LoginPage } from '../pages/LoginPage';
-import { NotFoundPage } from '../pages/NotFoundPage';
-import { SignUpPage } from '../pages/SignUpPage';
-import { WalletPage } from '../pages/WalletPage';
+import { FullPageLoader } from '../layout/FullPageLoader';
 
 interface Product extends MenuItem {
-  element: ReactNode;
+  lazy: RouteObject['lazy'];
 }
 
 const PRODUCTS: Record<string, Product> = {
-  wallet: { path: '/wallet', label: 'Wallet', element: <WalletPage /> },
+  wallet: {
+    path: '/wallet',
+    label: 'Wallet',
+    lazy: async () => ({ Component: (await import('../pages/WalletPage')).WalletPage }),
+  },
 };
 
 const HOME: MenuItem = { path: '/', label: 'Home' };
@@ -51,21 +48,45 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
     routes: [
       {
         element: <AppLayout menuItems={menuItems} />,
+        hydrateFallbackElement: <FullPageLoader label="Loading…" />,
         children: [
           {
             element: <RequireAuth />,
             children: [
-              { index: true, element: <HomePage /> },
-              { path: 'account', element: <AccountPage /> },
-              ...products.map(({ path, element }) => ({ path, element })),
+              {
+                index: true,
+                lazy: async () => ({ Component: (await import('../pages/HomePage')).HomePage }),
+              },
+              {
+                path: 'account',
+                lazy: async () => ({
+                  Component: (await import('../pages/AccountPage')).AccountPage,
+                }),
+              },
+              ...products.map(({ path, lazy }) => ({ path, lazy })),
             ],
           },
-          { path: 'login', element: <LoginPage /> },
-          { path: 'signup', element: <SignUpPage /> },
-          { path: '*', element: <NotFoundPage /> },
+          {
+            path: 'login',
+            lazy: async () => ({ Component: (await import('../pages/LoginPage')).LoginPage }),
+          },
+          {
+            path: 'signup',
+            lazy: async () => ({ Component: (await import('../pages/SignUpPage')).SignUpPage }),
+          },
+          {
+            path: '*',
+            lazy: async () => ({ Component: (await import('../pages/NotFoundPage')).NotFoundPage }),
+          },
         ],
       },
-      { path: 'auth/google/callback', element: <GoogleCallbackPage /> },
+      {
+        path: 'auth/google/callback',
+        lazy: async () => ({
+          Component: (await import('../pages/GoogleCallbackPage')).GoogleCallbackPage,
+        }),
+        HydrateFallback: () => null,
+      },
       ...MOCK_ROUTES,
     ],
   };

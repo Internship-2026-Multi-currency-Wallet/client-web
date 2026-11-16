@@ -24,6 +24,15 @@ async function open() {
 }
 
 describe('SignUpPage', () => {
+  it('links to third-party notices below the login prompt, outside the form', async () => {
+    await open();
+    const link = screen.getByRole('link', { name: 'Third-party notices' });
+    expect(link).toBeVisible();
+    expect(link).toHaveAttribute('href', '/third-party-notices.txt');
+    expect(screen.getByText(/Already have an account/).nextElementSibling).toBe(link);
+    expect(link.closest('form')).toBeNull();
+  });
+
   it('is served at /signup and moves focus to its heading', async () => {
     renderApp('/signup');
     expect(await screen.findByRole('heading', { name: 'Create account' })).toHaveFocus();
@@ -206,8 +215,16 @@ describe('SignUpPage', () => {
     await userEvent.click(submit());
 
     const input = { email, password, phone }[field as 'email' | 'password' | 'phone']();
-    await screen.findByText(text);
-    expect(input).toHaveAccessibleDescription(text);
+    if (field === 'password') {
+      const helperId = `${input.id}-helper-text`;
+      await waitFor(() =>
+        expect(document.getElementById(helperId)).toHaveTextContent(
+          /^Use 8-128 characters with a digit, an uppercase letter and a special character$/,
+        ),
+      );
+      expect(input.getAttribute('aria-describedby')?.split(' ')).toContain(helperId);
+    }
+    await waitFor(() => expect(input).toHaveAccessibleDescription(text));
     await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByText('dev message')).not.toBeInTheDocument();
   });
