@@ -142,6 +142,39 @@ function registerInputProblem(input: RegisterMutationVariables['input']) {
   return null;
 }
 
+/**
+ * The lock rules of wallet-core, shared by login and by re-entering the password (e.g. before linking Google):
+ * the error to answer, or null for the right password.
+ */
+export function checkMockPassword(user: MockUser, password: string) {
+  const lockedError = () =>
+    graphqlError(
+      AUTH_ERROR_CODES.ACCOUNT_LOCKED,
+      `Account is locked until ${new Date(user.lockedUntil!).toISOString()}`,
+      {
+        lockedUntil: new Date(user.lockedUntil!).toISOString(),
+      },
+    );
+  if (user.lockedUntil !== null && user.lockedUntil > Date.now()) return lockedError();
+
+  if (user.password !== password) {
+    user.failedLogins += 1;
+    if (user.failedLogins >= MAX_FAILED_LOGINS) {
+      user.failedLogins = 0;
+      user.lockedUntil = Date.now() + LOCK_MS;
+      persistUsers();
+      // Same as the backend: the 5th failed attempt is the one that already answers ACCOUNT_LOCKED.
+      return lockedError();
+    }
+    persistUsers();
+    return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
+  }
+  user.failedLogins = 0;
+  user.lockedUntil = null;
+  persistUsers();
+  return null;
+}
+
 export const authHandlers = [
   walletCore.mutation<RegisterMutation, RegisterMutationVariables>('Register', ({ variables }) => {
     const { input } = variables;
@@ -175,32 +208,8 @@ export const authHandlers = [
     // Unknown email and wrong password look the same on purpose.
     if (!user)
       return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
-
-    const lockedError = () =>
-      graphqlError(
-        AUTH_ERROR_CODES.ACCOUNT_LOCKED,
-        `Account is locked until ${new Date(user.lockedUntil!).toISOString()}`,
-        {
-          lockedUntil: new Date(user.lockedUntil!).toISOString(),
-        },
-      );
-    if (user.lockedUntil !== null && user.lockedUntil > Date.now()) return lockedError();
-
-    if (user.password !== password) {
-      user.failedLogins += 1;
-      if (user.failedLogins >= MAX_FAILED_LOGINS) {
-        user.failedLogins = 0;
-        user.lockedUntil = Date.now() + LOCK_MS;
-        persistUsers();
-        // Same as the backend: the 5th failed attempt is the one that already answers ACCOUNT_LOCKED.
-        return lockedError();
-      }
-      persistUsers();
-      return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
-    }
-    user.failedLogins = 0;
-    user.lockedUntil = null;
-    persistUsers();
+    const failure = checkMockPassword(user, password);
+    if (failure) return failure;
     setMockRefreshCookie(user.id);
     return HttpResponse.json({ data: { login: authPayload(user) } });
   }),

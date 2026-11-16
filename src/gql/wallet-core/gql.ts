@@ -18,7 +18,7 @@ type Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": typeof types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
     "\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n": typeof types.GoogleAccountDocument,
-    "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": typeof types.StartGoogleLinkDocument,
+    "\n  mutation StartGoogleLink($password: String!) {\n    startGoogleLink(password: $password) {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": typeof types.StartGoogleLinkDocument,
     "\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n": typeof types.LinkGoogleAccountDocument,
     "\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n": typeof types.UnlinkGoogleAccountDocument,
     "\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": typeof types.StartGoogleLoginDocument,
@@ -33,7 +33,7 @@ const documents: Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
     "\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n": types.GoogleAccountDocument,
-    "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": types.StartGoogleLinkDocument,
+    "\n  mutation StartGoogleLink($password: String!) {\n    startGoogleLink(password: $password) {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": types.StartGoogleLinkDocument,
     "\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n": types.LinkGoogleAccountDocument,
     "\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n": types.UnlinkGoogleAccountDocument,
     "\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": types.StartGoogleLoginDocument,
@@ -77,7 +77,7 @@ export function graphql(source: "\n  query GoogleAccount {\n    googleAccount {\
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"];
+export function graphql(source: "\n  mutation StartGoogleLink($password: String!) {\n    startGoogleLink(password: $password) {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation StartGoogleLink($password: String!) {\n    startGoogleLink(password: $password) {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

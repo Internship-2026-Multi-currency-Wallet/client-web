@@ -15,10 +15,21 @@ async function logInWithPassword(page: Page) {
 async function openGoogle(page: Page, button: string) {
   const [popup] = await Promise.all([
     page.waitForEvent('popup'),
-    page.getByRole('button', { name: button }).click(),
+    page.getByRole('button', { name: button, exact: true }).click(),
   ]);
   await expect(popup.getByRole('heading', { name: 'Mock Google sign-in' })).toBeVisible();
   return popup;
+}
+
+/** Link → the password dialog; returns once the password is typed, before Continue. */
+async function askToLink(page: Page, password: string) {
+  await page.getByRole('link', { name: 'Account' }).click();
+  await expect(page.getByText(/^Not linked/)).toBeVisible();
+  await page.getByRole('button', { name: 'Link Google account' }).click();
+  await page
+    .getByRole('dialog')
+    .getByLabel(/^Password/)
+    .fill(password);
 }
 
 async function chooseGoogleAccount(popup: Page, email: string) {
@@ -29,13 +40,8 @@ async function chooseGoogleAccount(popup: Page, email: string) {
 
 test('link Google in account settings, then log in with it', async ({ page }) => {
   await logInWithPassword(page);
-  await page.getByRole('link', { name: 'Account' }).click();
-  await expect(page.getByText(/^Not linked/)).toBeVisible();
-
-  await chooseGoogleAccount(
-    await openGoogle(page, 'Link Google account'),
-    'e2e.google@example.com',
-  );
+  await askToLink(page, demo.password);
+  await chooseGoogleAccount(await openGoogle(page, 'Continue'), 'e2e.google@example.com');
   await expect(page.getByText('e2e.google@example.com')).toBeVisible();
 
   await page.getByRole('button', { name: 'Log out' }).click();
@@ -65,4 +71,17 @@ test('a Google account that is not linked cannot log in', async ({ page }) => {
 
   await expect(page.getByRole('alert')).toContainText('not linked to any account');
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test('a wrong password stops the link before Google', async ({ page }) => {
+  await logInWithPassword(page);
+  await askToLink(page, 'Wrong1234!');
+  const [popup] = await Promise.all([
+    page.waitForEvent('popup'),
+    page.getByRole('button', { name: 'Continue', exact: true }).click(),
+  ]);
+
+  await expect(page.getByRole('alert')).toHaveText('Wrong password. Please try again.');
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  await expect(page.getByText(/^Not linked/)).toBeVisible();
 });

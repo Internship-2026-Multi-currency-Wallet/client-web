@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
+import { DEMO_USER } from '../mocks/auth-handlers';
 import { seedMockGoogleLink } from '../mocks/google-handlers';
 import { server } from '../mocks/server';
 import { OTHER_USER, otherTab, signInForTest, testSession } from '../test/auth';
@@ -9,6 +10,16 @@ import { errorResponse, walletCore } from '../test/graphql-handlers';
 import { renderApp } from '../test/render';
 
 const linkButton = () => screen.getByRole('button', { name: /link google account|waiting/i });
+
+/** Link → the password dialog → Continue. The signed-in test user is the mocks' demo user. */
+async function startLink(password: string = DEMO_USER.password) {
+  await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Link Google account' }));
+  await userEvent.type(dialog.getByLabelText(/^password/i), password);
+  await userEvent.click(dialog.getByRole('button', { name: 'Continue' }));
+  // The closing dialog hides the rest of the page until it is gone.
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+}
 
 async function openAccount() {
   signInForTest();
@@ -39,7 +50,7 @@ describe('AccountPage', () => {
     await openAccount();
     expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
 
-    await userEvent.click(linkButton());
+    await startLink();
     expect(linkButton()).toHaveTextContent('Waiting for Google…');
     await google.approve('Demo.Google@example.com');
 
@@ -49,11 +60,64 @@ describe('AccountPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('asks for the password before Google, and Cancel leaves the page as it was', async () => {
+    const google = stubGooglePopup();
+    let starts = 0;
+    server.use(
+      walletCore.mutation('StartGoogleLink', () => {
+        starts += 1;
+        return undefined;
+      }),
+    );
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Link Google account' }));
+    expect(dialog.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(google.open).not.toHaveBeenCalled();
+
+    await userEvent.type(dialog.getByLabelText(/^password/i), 'typed');
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(google.open).not.toHaveBeenCalled();
+    expect(starts).toBe(0);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(linkButton()).toHaveTextContent('Link Google account');
+
+    // The typed password is not kept.
+    await userEvent.click(linkButton());
+    expect(await screen.findByLabelText(/^password/i)).toHaveValue('');
+  });
+
+  it('explains a wrong password and never goes on to Google', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink('Wrong1234!');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong password. Please try again.');
+    expect(google.popup.closed).toBe(true);
+    expect(google.popup.location.href).toBe('about:blank');
+    expect(linkButton()).toBeEnabled();
+    expect(screen.getByText(/^Not linked/)).toBeInTheDocument();
+  });
+
+  it('explains an account locked by wrong passwords, with the unlock time', async () => {
+    stubGooglePopup();
+    await openAccount();
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await startLink('Wrong1234!');
+      await screen.findByRole('alert');
+      await waitFor(() => expect(linkButton()).toBeEnabled());
+    }
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Too many failed attempts\. Your account is locked until .+\.$/,
+    );
+  });
+
   it('explains a Google account that is already linked to another user', async () => {
     seedMockGoogleLink('2', 'taken@example.com');
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.approve('taken@example.com');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -68,7 +132,7 @@ describe('AccountPage', () => {
     await screen.findByText(/^Not linked/);
     seedMockGoogleLink('1', 'first@example.com'); // e.g. in another tab
 
-    await userEvent.click(linkButton());
+    await startLink();
     await google.approve('second@example.com');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -80,7 +144,7 @@ describe('AccountPage', () => {
   it('lets the user cancel the wait, and says so', async () => {
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.authorizeUrl();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -108,7 +172,7 @@ describe('AccountPage', () => {
     );
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.approve('late@example.com');
     await waitFor(() => expect(sent).toBe(true));
 
@@ -122,7 +186,7 @@ describe('AccountPage', () => {
   it('tells a user who closed the Google window how to go on', async () => {
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.closeByUser();
 
     expect(await screen.findByText(/closed the google window/i)).toBeInTheDocument();
@@ -141,7 +205,7 @@ describe('AccountPage', () => {
     );
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.authorizeUrl();
     await userEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Home' }));
 
@@ -172,7 +236,7 @@ describe('AccountPage', () => {
     );
     const google = stubGooglePopup();
     await openAccount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await startLink();
     await google.approve('demo.google@example.com');
     await waitFor(() => expect(linkCalled).toBe(true));
 

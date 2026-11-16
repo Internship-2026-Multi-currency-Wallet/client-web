@@ -23,8 +23,8 @@ const errorOf = async (promise: Promise<unknown>) => {
   return (error as ClientError).response.errors?.[0];
 };
 
-const startLink = async () =>
-  (await request('walletCore', startGoogleLinkMutation)).startGoogleLink;
+const startLink = async (password: string = DEMO_USER.password) =>
+  (await request('walletCore', startGoogleLinkMutation, { password })).startGoogleLink;
 const startLogin = async () =>
   (await request('walletCore', startGoogleLoginMutation)).startGoogleLogin;
 
@@ -72,8 +72,7 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
   });
 
   it('refuses a Google account linked to another user', async () => {
-    signInForTest({ user: OTHER_USER });
-    await link('shared@gmail.com');
+    seedMockGoogleLink(OTHER_USER.id, 'shared@gmail.com');
     signInForTest();
     expect(await errorOf(link('shared@gmail.com'))).toMatchObject({
       message: 'This Google account is already linked to another user',
@@ -195,10 +194,42 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
 
   it.each([
     ['googleAccount', () => request('walletCore', googleAccountQuery)],
-    ['startGoogleLink', () => request('walletCore', startGoogleLinkMutation)],
+    ['startGoogleLink', () => startLink()],
     ['unlinkGoogleAccount', () => request('walletCore', unlinkGoogleAccountMutation)],
   ])('%s needs a signed-in user', async (_name, call) => {
     expect((await errorOf(call()))?.extensions?.code).toBe('UNAUTHENTICATED');
+  });
+
+  describe('the password before linking', () => {
+    const hasStateCookie = () => document.cookie.includes('google_auth_state=');
+
+    it('answers INVALID_CREDENTIALS for a wrong password and starts no sign-in', async () => {
+      signInForTest();
+      const error = await errorOf(startLink('Wrong1234!'));
+      expect(error?.extensions).toEqual({ code: 'INVALID_CREDENTIALS' });
+      expect(hasStateCookie()).toBe(false);
+    });
+
+    it('locks the account after 5 wrong passwords, for linking and for logging in', async () => {
+      signInForTest();
+      for (let attempt = 1; attempt < 5; attempt += 1) {
+        expect((await errorOf(startLink('Wrong1234!')))?.extensions?.code).toBe(
+          'INVALID_CREDENTIALS',
+        );
+      }
+      const locked = await errorOf(startLink('Wrong1234!'));
+      expect(locked?.extensions).toMatchObject({
+        code: 'ACCOUNT_LOCKED',
+        lockedUntil: expect.any(String),
+      });
+      expect((await errorOf(startLink()))?.extensions?.code).toBe('ACCOUNT_LOCKED');
+      const login = await errorOf(
+        request('walletCore', loginMutation, {
+          input: { email: DEMO_USER.email, password: DEMO_USER.password },
+        }),
+      );
+      expect(login?.extensions?.code).toBe('ACCOUNT_LOCKED');
+    });
   });
 
   describe('loginWithGoogle', () => {
@@ -236,7 +267,7 @@ describe('mock Google login: the auth.googleLogin setting and a locked account',
     seedMockGoogleLink(TEST_USER.id, 'demo.google@example.com');
     googleLoginOff();
 
-    const link = await errorOf(request('walletCore', startGoogleLinkMutation));
+    const link = await errorOf(startLink('Wrong1234!'));
     expect(link?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });
     const login = await errorOf(request('walletCore', startGoogleLoginMutation));
     expect(login?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });

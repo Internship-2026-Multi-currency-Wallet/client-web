@@ -9,9 +9,10 @@ import {
   DialogContentText,
   DialogTitle,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { describeGoogleLinkError } from './authErrors';
 import {
   useGoogleAccountQuery,
@@ -29,13 +30,23 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
   const link = useGoogleLink(userId);
   const [unlink, unlinking] = useUnlinkGoogleAccountMutation();
   const [confirming, setConfirming] = useState(false);
+  const [askingPassword, setAskingPassword] = useState(false);
+  const [password, setPassword] = useState('');
   // `currentData`, not `data`: `data` keeps the previous user's answer while this user's one loads.
   const linked = account.currentData;
   const busy = link.isPending || unlinking.isLoading || account.isFetching;
 
-  const startLink = () => {
+  const closePasswordDialog = () => {
+    setAskingPassword(false);
+    setPassword('');
+  };
+
+  // Straight from the submit, before any `await`: the Google window must open in response to the user.
+  const startLink = (event: FormEvent) => {
+    event.preventDefault();
+    closePasswordDialog();
     unlinking.reset();
-    link.start();
+    link.start(password);
   };
 
   const confirmUnlink = () => {
@@ -87,7 +98,7 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
           )}
 
           {linked === null && enabled && (
-            <Button variant="contained" onClick={startLink} disabled={busy}>
+            <Button variant="contained" onClick={() => setAskingPassword(true)} disabled={busy}>
               {link.isPending ? 'Waiting for Google…' : 'Link Google account'}
             </Button>
           )}
@@ -113,6 +124,33 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
           )}
         </Stack>
       </CardContent>
+
+      <Dialog
+        open={askingPassword}
+        onClose={closePasswordDialog}
+        slotProps={{ paper: { component: 'form', onSubmit: startLink } }}
+      >
+        <DialogTitle>Link Google account</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Enter your password to continue to Google.</DialogContentText>
+          <TextField
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoFocus
+            fullWidth
+            margin="dense"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePasswordDialog}>Cancel</Button>
+          <Button type="submit" disabled={!password}>
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirming} onClose={() => setConfirming(false)}>
         <DialogTitle>Unlink Google account?</DialogTitle>

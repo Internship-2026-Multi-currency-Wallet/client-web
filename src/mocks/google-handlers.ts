@@ -10,11 +10,13 @@ import type {
   LoginWithGoogleMutation,
   LoginWithGoogleMutationVariables,
   StartGoogleLinkMutation,
+  StartGoogleLinkMutationVariables,
   StartGoogleLoginMutation,
   UnlinkGoogleAccountMutation,
 } from '../gql/wallet-core/graphql';
 import {
   authPayload,
+  checkMockPassword,
   graphqlError,
   mockUserById,
   setMockRefreshCookie,
@@ -198,12 +200,20 @@ export const googleHandlers = [
     return HttpResponse.json({ data: { googleAccount: link ? toAccount(link) : null } });
   }),
 
-  walletCore.mutation<StartGoogleLinkMutation>('StartGoogleLink', ({ request }) => {
-    const userId = userIdFromBearer(request.headers.get('authorization'));
-    if (!userId) return unauthenticated();
-    if (!mockGoogleLoginEnabled()) return googleLoginDisabled();
-    return HttpResponse.json({ data: { startGoogleLink: start('link', userId) } });
-  }),
+  walletCore.mutation<StartGoogleLinkMutation, StartGoogleLinkMutationVariables>(
+    'StartGoogleLink',
+    ({ request, variables }) => {
+      const userId = userIdFromBearer(request.headers.get('authorization'));
+      if (!userId) return unauthenticated();
+      if (!mockGoogleLoginEnabled()) return googleLoginDisabled();
+      const user = mockUserById(userId);
+      if (!user)
+        return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
+      const failure = checkMockPassword(user, variables.password);
+      if (failure) return failure;
+      return HttpResponse.json({ data: { startGoogleLink: start('link', userId) } });
+    },
+  ),
 
   walletCore.mutation<LinkGoogleAccountMutation, LinkGoogleAccountMutationVariables>(
     'LinkGoogleAccount',

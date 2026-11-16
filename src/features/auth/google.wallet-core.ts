@@ -10,8 +10,8 @@ export const googleAccountQuery = graphql(`
 `);
 
 export const startGoogleLinkMutation = graphql(`
-  mutation StartGoogleLink {
-    startGoogleLink {
+  mutation StartGoogleLink($password: String!) {
+    startGoogleLink(password: $password) {
       state
       nonce
       expiresAt
