@@ -177,12 +177,16 @@ describe('LoginPage', () => {
     renderApp('/login');
     await screen.findByRole('heading', { name: 'Log in' });
     const link = screen.getByRole('link', { name: 'Sign up' });
+    const google = screen.getByRole('button', { name: 'Continue with Google' });
 
     await fill({ email: DEMO_USER.email, password: 'Wrong1234!' });
     await userEvent.tab();
     expect(submit()).toHaveFocus();
     await userEvent.tab();
+    expect(google).toHaveFocus();
+    await userEvent.tab();
     expect(link).toHaveFocus();
+    await userEvent.tab({ shift: true });
     await userEvent.tab({ shift: true });
     await userEvent.tab({ shift: true });
     expect(password()).toHaveFocus();
@@ -202,6 +206,7 @@ describe('LoginPage', () => {
     await userEvent.keyboard(' ');
     expect(await screen.findByRole('alert')).toBeInTheDocument();
 
+    await userEvent.tab();
     await userEvent.tab();
     await userEvent.keyboard('{Enter}');
     expect(await screen.findByRole('heading', { name: 'Create account' })).toBeInTheDocument();

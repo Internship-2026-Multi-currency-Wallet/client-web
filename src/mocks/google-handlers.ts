@@ -95,6 +95,17 @@ function clearStateCookie(): void {
   document.cookie = `${STATE_COOKIE}=; path=/; max-age=0`;
 }
 
+export function seedMockGoogleLink(userId: string, googleEmail: string): void {
+  const email = googleEmail.toLowerCase();
+  const link: MockLink = {
+    sub: `mock-sub:${email}`,
+    userId,
+    email,
+    linkedAt: new Date().toISOString(),
+  };
+  saveLinks([...loadLinks(), link]);
+}
+
 export function resetMockGoogle(): void {
   sessionStorage.removeItem(LINKS_KEY);
   clearStateCookie();
