@@ -91,6 +91,11 @@ export function GoogleAccountCard({ userId }: { userId: string }) {
               {link.isPending ? 'Waiting for Google…' : 'Link Google account'}
             </Button>
           )}
+          {link.isPending && (
+            <Button size="small" onClick={link.cancel}>
+              Cancel
+            </Button>
+          )}
           {linked && (
             <Button
               variant="outlined"

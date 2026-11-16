@@ -8,9 +8,6 @@ export const MOCK_GOOGLE_PATH = '/auth/google/mock';
 
 const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const CHANNEL = 'google-auth';
-const POLL_MS = 500;
-// The callback page posts its result and then closes: give that message time to arrive.
-const CLOSE_GRACE_MS = 1000;
 // A started sign-in is valid for 10 minutes on wallet-core.
 const TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -93,11 +90,9 @@ function authorizeUrl(start: GoogleAuthStart, codeChallenge: string): string {
 function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     const channel = new BroadcastChannel(CHANNEL);
-    const startedAt = Date.now();
-    let closedAt: number | null = null;
 
     const finish = (settle: () => void) => {
-      clearInterval(timer);
+      clearTimeout(timer);
       channel.close();
       signal.removeEventListener('abort', onAbort);
       popup.close();
@@ -107,7 +102,7 @@ function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise
     signal.addEventListener('abort', onAbort);
 
     channel.onmessage = ({ data }: MessageEvent<GoogleCallbackResult>) => {
-      if (data?.state !== state) return; // another tab's sign-in
+      if (data?.state !== state) return;
       if (data.code) {
         const code = data.code;
         finish(() => resolve(code));
@@ -121,16 +116,11 @@ function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise
       }
     };
 
-    const timer = setInterval(() => {
-      if (Date.now() - startedAt >= TIMEOUT_MS) {
-        finish(() => reject(popupError(GOOGLE_POPUP_ERRORS.TIMEOUT)));
-      } else if (popup.closed) {
-        closedAt ??= Date.now();
-        if (Date.now() - closedAt >= CLOSE_GRACE_MS) {
-          finish(() => reject(popupError(GOOGLE_POPUP_ERRORS.POPUP_CLOSED)));
-        }
-      }
-    }, POLL_MS);
+    // Never `popup.closed`: Google can detach the popup with COOP, and it then reports closed while still open.
+    const timer = setTimeout(
+      () => finish(() => reject(popupError(GOOGLE_POPUP_ERRORS.TIMEOUT))),
+      TIMEOUT_MS,
+    );
   });
 }
 

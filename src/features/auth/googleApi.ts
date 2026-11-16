@@ -15,7 +15,12 @@ import {
   startGoogleLoginMutation,
   unlinkGoogleAccountMutation,
 } from './google.wallet-core';
-import { isGoogleSignInConfigured, openGooglePopup, signInWithGoogle } from './googlePopup';
+import {
+  GOOGLE_POPUP_ERRORS,
+  isGoogleSignInConfigured,
+  openGooglePopup,
+  signInWithGoogle,
+} from './googlePopup';
 
 /** Login calls create the session: an `UNAUTHENTICATED` is their answer, never a reason to refresh. */
 const NO_SESSION_RETRY: RequestOptions = { retryOnUnauthenticated: false };
@@ -76,6 +81,7 @@ function toFlowError(error: unknown): GraphQLRequestError {
 
 export interface GoogleFlow {
   start: () => void;
+  cancel: () => void;
   isPending: boolean;
   error: GraphQLRequestError | null;
   reset: () => void;
@@ -113,7 +119,15 @@ function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unk
       });
   };
 
-  return { start, isPending, error, reset: () => setError(null) };
+  // The popup is not watched for being closed, so the user needs a way out of the wait.
+  const cancel = () => {
+    running.forEach((controller) => controller.abort());
+    running.clear();
+    setPending(false);
+    setError({ code: GOOGLE_POPUP_ERRORS.POPUP_CLOSED, message: GOOGLE_POPUP_ERRORS.POPUP_CLOSED });
+  };
+
+  return { start, cancel, isPending, error, reset: () => setError(null) };
 }
 
 export function useGoogleLogin(): GoogleFlow {
@@ -130,7 +144,6 @@ export function useGoogleLogin(): GoogleFlow {
     );
     // Only the request and the save are locked, not the popup: see withSessionLock.
     await withSessionLock(async () => {
-      // Someone signed in meanwhile (e.g. in another tab): that session wins, and no cookie is replaced.
       if (signal.aborted || loadSession() !== null) return;
       const { loginWithGoogle } = await serverCall(() =>
         request('walletCore', loginWithGoogleMutation, { input }, NO_SESSION_RETRY),

@@ -41,7 +41,6 @@ function isAllowedRedirect(redirectUri: string): boolean {
 
 const GOOGLE_LOGIN_SETTING_KEY = 'mock.google.enabled';
 
-/** The mock `auth.googleLogin` setting; the public settings answer reads it too. */
 export function mockGoogleLoginEnabled(): boolean {
   return sessionStorage.getItem(GOOGLE_LOGIN_SETTING_KEY) !== 'false';
 }

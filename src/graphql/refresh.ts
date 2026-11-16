@@ -14,7 +14,6 @@ const SESSION_LOCK = 'wallet.session';
 /** A hung refresh must not hold the lock (and every tab waiting on it) forever. */
 const REFRESH_TIMEOUT_MS = 15_000;
 
-/** Runs `callback` alone among the tabs of this browser. */
 export function withSessionLock<T>(callback: () => Promise<T>): Promise<T> {
   // No Web Locks outside a secure context (e.g. the dev server opened via a LAN IP): not coordinated.
   return navigator.locks ? navigator.locks.request(SESSION_LOCK, callback) : callback();

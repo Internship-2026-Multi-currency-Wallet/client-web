@@ -77,11 +77,12 @@ describe('AccountPage', () => {
     expect(await screen.findByText('first@example.com')).toBeInTheDocument();
   });
 
-  it('explains that the user closed the Google window', async () => {
+  it('lets the user cancel the wait, and says so', async () => {
     const google = stubGooglePopup();
     await openAccount();
     await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
-    await google.closeByUser();
+    await google.authorizeUrl();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
     expect(linkButton()).toBeEnabled();

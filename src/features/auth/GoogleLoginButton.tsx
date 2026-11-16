@@ -22,6 +22,11 @@ export function GoogleLoginButton({ flow, disabled = false }: GoogleLoginButtonP
       >
         {flow.isPending ? 'Waiting for Google…' : 'Continue with Google'}
       </Button>
+      {flow.isPending && (
+        <Button size="small" onClick={flow.cancel}>
+          Cancel
+        </Button>
+      )}
     </Stack>
   );
 }

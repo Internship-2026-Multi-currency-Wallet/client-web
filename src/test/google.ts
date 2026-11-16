@@ -30,10 +30,6 @@ export function stubGooglePopup() {
     authorizeUrl,
     approve: (googleEmail: string) => answer({ code: mockGoogleCode(googleEmail), error: null }),
     deny: () => answer({ code: null, error: 'access_denied' }),
-    async closeByUser() {
-      await authorizeUrl();
-      popup.closed = true;
-    },
   };
 }
 

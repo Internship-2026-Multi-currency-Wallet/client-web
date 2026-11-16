@@ -82,15 +82,32 @@ describe('Continue with Google', () => {
     expect(await sha256Base64Url(variables?.input.codeVerifier ?? '')).toBe(params.code_challenge);
   });
 
-  it('explains that the user closed the Google window', async () => {
+  it('lets the user cancel the wait, and says so', async () => {
     const google = stubGooglePopup();
     await openLogin();
     await userEvent.click(googleButton());
-    await google.closeByUser();
+    await google.authorizeUrl();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
     expect(googleButton()).toBeEnabled();
     expect(loadSession()).toBeNull();
+  });
+
+  it('keeps waiting for the callback when the popup reports itself closed, as a COOP-detached one does', async () => {
+    seedMockGoogleLink('1', 'demo.google@example.com');
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    await google.authorizeUrl();
+    google.popup.closed = true;
+
+    await delay(2000);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(googleButton()).toHaveTextContent('Waiting for Google…');
+
+    await google.approve('demo.google@example.com');
+    expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
   });
 
   it('treats Cancel on the Google screen like a closed window', async () => {
@@ -167,7 +184,8 @@ describe('Continue with Google', () => {
 
     expect(screen.getByLabelText(/^email/i)).toBeDisabled();
     expect(screen.getByRole('button', { name: /^log in$/i })).toBeDisabled();
-    await google.closeByUser();
+    await google.authorizeUrl();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     await screen.findByRole('alert');
     expect(screen.getByLabelText(/^email/i)).toBeEnabled();
   });

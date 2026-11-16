@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GOOGLE_POPUP_ERRORS, signInWithGoogle } from './googlePopup';
 
-const waitForRealTime = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+const realSetTimeout = globalThis.setTimeout;
+const waitForRealTime = () => new Promise<void>((resolve) => realSetTimeout(resolve, 0));
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
@@ -19,7 +20,7 @@ describe('signInWithGoogle', () => {
 
   it('gives up with GOOGLE_TIMEOUT when no answer comes before the sign-in expires', async () => {
     // Only the timers the flow waits on are faked: the PKCE hash is real asynchronous work.
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const popup = fakePopup();
     const flow = signInWithGoogle(
       popup,
