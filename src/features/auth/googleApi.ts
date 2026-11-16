@@ -152,7 +152,8 @@ export function useGoogleLogin(): GoogleFlow {
         ),
       signal,
     );
-    // Only the request and the save are locked, not the popup: see withSessionLock.
+    // Do not hold the shared session lock while waiting for user consent, which would block login
+    // and refresh in every tab.
     await withSessionLock(async () => {
       if (signal.aborted || loadSession() !== null) return;
       const { loginWithGoogle } = await serverCall(() =>
