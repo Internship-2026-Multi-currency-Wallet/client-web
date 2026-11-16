@@ -3,8 +3,6 @@ import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
 import { FullPageLoader } from '../layout/FullPageLoader';
 
-// Pages load on demand: each one is its own chunk. AppLayout and RequireAuth are the shell, so they stay eager.
-
 interface Product extends MenuItem {
   lazy: RouteObject['lazy'];
 }
@@ -35,7 +33,6 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
     routes: [
       {
         element: <AppLayout menuItems={menuItems} />,
-        // Shown while the first page's chunk loads (a direct open or a reload).
         hydrateFallbackElement: <FullPageLoader label="Loading…" />,
         children: [
           {

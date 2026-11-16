@@ -1,6 +1,5 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 
-/** Full-screen spinner with a label; the colours come from the brand theme. */
 export function FullPageLoader({ label }: { label: string }) {
   return (
     <Box
