@@ -169,8 +169,8 @@ describe('LoginPage', () => {
     expect(link).toHaveAttribute('href', '/signup');
 
     await userEvent.click(link);
-    expect(router.state.location.pathname).toBe('/signup');
     expect(await screen.findByRole('heading', { name: 'Create account' })).toHaveFocus();
+    expect(router.state.location.pathname).toBe('/signup');
   });
 
   it('has a natural keyboard order and submits with Enter and Space', async () => {

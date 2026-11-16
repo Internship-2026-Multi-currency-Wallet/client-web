@@ -1,19 +1,20 @@
-import type { ReactNode } from 'react';
 import type { RouteObject } from 'react-router';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
-import { HomePage } from '../pages/HomePage';
-import { LoginPage } from '../pages/LoginPage';
-import { NotFoundPage } from '../pages/NotFoundPage';
-import { SignUpPage } from '../pages/SignUpPage';
-import { WalletPage } from '../pages/WalletPage';
+import { FullPageLoader } from '../layout/FullPageLoader';
+
+// Pages load on demand: each one is its own chunk. AppLayout and RequireAuth are the shell, so they stay eager.
 
 interface Product extends MenuItem {
-  element: ReactNode;
+  lazy: RouteObject['lazy'];
 }
 
 const PRODUCTS: Record<string, Product> = {
-  wallet: { path: '/wallet', label: 'Wallet', element: <WalletPage /> },
+  wallet: {
+    path: '/wallet',
+    label: 'Wallet',
+    lazy: async () => ({ Component: (await import('../pages/WalletPage')).WalletPage }),
+  },
 };
 
 const HOME: MenuItem = { path: '/', label: 'Home' };
@@ -34,17 +35,31 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
     routes: [
       {
         element: <AppLayout menuItems={menuItems} />,
+        // Shown while the first page's chunk loads (a direct open or a reload).
+        hydrateFallbackElement: <FullPageLoader label="Loading…" />,
         children: [
           {
             element: <RequireAuth />,
             children: [
-              { index: true, element: <HomePage /> },
-              ...products.map(({ path, element }) => ({ path, element })),
+              {
+                index: true,
+                lazy: async () => ({ Component: (await import('../pages/HomePage')).HomePage }),
+              },
+              ...products.map(({ path, lazy }) => ({ path, lazy })),
             ],
           },
-          { path: 'login', element: <LoginPage /> },
-          { path: 'signup', element: <SignUpPage /> },
-          { path: '*', element: <NotFoundPage /> },
+          {
+            path: 'login',
+            lazy: async () => ({ Component: (await import('../pages/LoginPage')).LoginPage }),
+          },
+          {
+            path: 'signup',
+            lazy: async () => ({ Component: (await import('../pages/SignUpPage')).SignUpPage }),
+          },
+          {
+            path: '*',
+            lazy: async () => ({ Component: (await import('../pages/NotFoundPage')).NotFoundPage }),
+          },
         ],
       },
     ],
