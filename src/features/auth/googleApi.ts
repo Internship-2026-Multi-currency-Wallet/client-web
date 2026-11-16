@@ -92,8 +92,7 @@ function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unk
   const [error, setError] = useState<GraphQLRequestError | null>(null);
   const [running] = useState(() => new Set<AbortController>());
 
-  // Leaving the page (another login, another user, navigation) cancels the sign-in: its popup closes
-  // and its code is never exchanged.
+  // Cancellation prevents starting an exchange but cannot undo an exchange already sent.
   useEffect(() => () => running.forEach((controller) => controller.abort()), [running]);
 
   const start = () => {
