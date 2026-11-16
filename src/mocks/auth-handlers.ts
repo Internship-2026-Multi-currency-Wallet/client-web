@@ -142,10 +142,7 @@ function registerInputProblem(input: RegisterMutationVariables['input']) {
   return null;
 }
 
-/**
- * The lock rules of wallet-core, shared by login and by re-entering the password (e.g. before linking Google):
- * the error to answer, or null for the right password.
- */
+/** Login and Google linking share failure counters so reauthentication cannot bypass account lockout. */
 export function checkMockPassword(user: MockUser, password: string) {
   const lockedError = () =>
     graphqlError(

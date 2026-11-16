@@ -177,7 +177,6 @@ export function useGoogleLogin(): GoogleFlow {
   });
 }
 
-/** `start(password)`: wallet-core checks the password before it starts the sign-in. */
 export function useGoogleLink(userId: string): GoogleFlow<string> {
   const dispatch = useAppDispatch();
   return useGoogleFlow<string>(async (password, popup, signal, onPopupClosed) => {
