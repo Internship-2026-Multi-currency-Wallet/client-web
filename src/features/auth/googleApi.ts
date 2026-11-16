@@ -83,12 +83,17 @@ export interface GoogleFlow {
   start: () => void;
   cancel: () => void;
   isPending: boolean;
+  /** The popup looks closed; it may still be open (COOP), so the sign-in goes on. */
+  popupClosed: boolean;
   error: GraphQLRequestError | null;
   reset: () => void;
 }
 
-function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unknown>): GoogleFlow {
+function useGoogleFlow(
+  flow: (popup: Window, signal: AbortSignal, onPopupClosed: () => void) => Promise<unknown>,
+): GoogleFlow {
   const [isPending, setPending] = useState(false);
+  const [popupClosed, setPopupClosed] = useState(false);
   const [error, setError] = useState<GraphQLRequestError | null>(null);
   const [running] = useState(() => new Set<AbortController>());
 
@@ -108,25 +113,31 @@ function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unk
     const controller = new AbortController();
     running.add(controller);
     setPending(true);
-    flow(popup, controller.signal)
+    setPopupClosed(false);
+    flow(popup, controller.signal, () => {
+      if (!controller.signal.aborted) setPopupClosed(true);
+    })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted) setError(toFlowError(failure));
       })
       .finally(() => {
         running.delete(controller);
-        if (!controller.signal.aborted) setPending(false);
+        if (controller.signal.aborted) return;
+        setPending(false);
+        setPopupClosed(false);
       });
   };
 
-  // The popup is not watched for being closed, so the user needs a way out of the wait.
+  // A popup that looks closed may still be open, so only the user can end the wait early.
   const cancel = () => {
     running.forEach((controller) => controller.abort());
     running.clear();
     setPending(false);
+    setPopupClosed(false);
     setError({ code: GOOGLE_POPUP_ERRORS.POPUP_CLOSED, message: GOOGLE_POPUP_ERRORS.POPUP_CLOSED });
   };
 
-  return { start, cancel, isPending, error, reset: () => setError(null) };
+  return { start, cancel, isPending, popupClosed, error, reset: () => setError(null) };
 }
 
 // Serialize starts because even a cancelled sign-in's response can overwrite the shared `google_auth_state` cookie.
@@ -139,7 +150,7 @@ function serializedStart<T>(call: () => Promise<T>): Promise<T> {
 }
 
 export function useGoogleLogin(): GoogleFlow {
-  return useGoogleFlow(async (popup, signal) => {
+  return useGoogleFlow(async (popup, signal, onPopupClosed) => {
     const input = await signInWithGoogle(
       popup,
       () =>
@@ -151,6 +162,7 @@ export function useGoogleLogin(): GoogleFlow {
           ),
         ),
       signal,
+      onPopupClosed,
     );
     // Do not hold the shared session lock while waiting for user consent, which would block login
     // and refresh in every tab.
@@ -167,7 +179,7 @@ export function useGoogleLogin(): GoogleFlow {
 
 export function useGoogleLink(userId: string): GoogleFlow {
   const dispatch = useAppDispatch();
-  return useGoogleFlow(async (popup, signal) => {
+  return useGoogleFlow(async (popup, signal, onPopupClosed) => {
     const input = await signInWithGoogle(
       popup,
       () =>
@@ -177,6 +189,7 @@ export function useGoogleLink(userId: string): GoogleFlow {
           ),
         ),
       signal,
+      onPopupClosed,
     );
     if (signal.aborted) return;
     try {

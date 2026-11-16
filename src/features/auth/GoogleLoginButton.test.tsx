@@ -99,15 +99,29 @@ describe('Continue with Google', () => {
     const google = stubGooglePopup();
     await openLogin();
     await userEvent.click(googleButton());
-    await google.authorizeUrl();
-    google.popup.closed = true;
+    await google.closeByUser();
 
-    await delay(2000);
+    expect(await screen.findByText(/closed the google window/i)).toBeInTheDocument();
+    await delay(1000);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(googleButton()).toHaveTextContent('Waiting for Google…');
 
     await google.approve('demo.google@example.com');
     expect(await screen.findByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
+  });
+
+  it('tells a user who closed the Google window how to go on', async () => {
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    expect(screen.queryByText(/closed the google window/i)).not.toBeInTheDocument();
+    await google.closeByUser();
+
+    expect(await screen.findByText(/closed the google window/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
+    expect(screen.queryByText(/closed the google window/i)).not.toBeInTheDocument();
+    expect(googleButton()).toBeEnabled();
   });
 
   it('treats Cancel on the Google screen like a closed window', async () => {

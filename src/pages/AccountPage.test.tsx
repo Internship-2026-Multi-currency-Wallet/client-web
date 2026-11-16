@@ -119,6 +119,18 @@ describe('AccountPage', () => {
     expect(screen.queryByRole('button', { name: 'Link Google account' })).not.toBeInTheDocument();
   });
 
+  it('tells a user who closed the Google window how to go on', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    await google.closeByUser();
+
+    expect(await screen.findByText(/closed the google window/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
+    expect(linkButton()).toBeEnabled();
+  });
+
   it('cancels the link when the user leaves the page', async () => {
     let links = 0;
     server.use(

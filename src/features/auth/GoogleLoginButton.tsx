@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Stack } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { describeGoogleLoginError } from './authErrors';
 import type { GoogleFlow } from './googleApi';
 
@@ -21,6 +21,11 @@ export function GoogleLoginButton({ flow, disabled = false }: GoogleLoginButtonP
       >
         {flow.isPending ? 'Waiting for Google…' : 'Continue with Google'}
       </Button>
+      {flow.isPending && flow.popupClosed && (
+        <Typography role="status" variant="body2">
+          Closed the Google window? Cancel to try again.
+        </Typography>
+      )}
       {flow.isPending && (
         <Button size="small" onClick={flow.cancel}>
           Cancel

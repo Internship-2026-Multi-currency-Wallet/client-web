@@ -10,6 +10,7 @@ const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const CHANNEL = 'google-auth';
 // A started sign-in is valid for 10 minutes on wallet-core.
 const TIMEOUT_MS = 10 * 60 * 1000;
+const POLL_MS = 500;
 
 export const GOOGLE_POPUP_ERRORS = {
   POPUP_BLOCKED: 'GOOGLE_POPUP_BLOCKED',
@@ -87,11 +88,17 @@ function authorizeUrl(start: GoogleAuthStart, codeChallenge: string): string {
   return `${base}?${params}`;
 }
 
-function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise<string> {
+function waitForCode(
+  popup: Window,
+  state: string,
+  signal: AbortSignal,
+  onPopupClosed?: () => void,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const channel = new BroadcastChannel(CHANNEL);
 
     const finish = (settle: () => void) => {
+      clearInterval(watch);
       clearTimeout(timer);
       channel.close();
       signal.removeEventListener('abort', onAbort);
@@ -115,7 +122,13 @@ function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise
       }
     };
 
-    // Never `popup.closed`: Google can detach the popup with COOP, and it then reports closed while still open.
+    // `popup.closed` only prompts the user and never ends the wait: a popup that Google detaches with COOP
+    // reports closed while it is still open.
+    const watch = setInterval(() => {
+      if (!popup.closed) return;
+      clearInterval(watch);
+      onPopupClosed?.();
+    }, POLL_MS);
     const timer = setTimeout(
       () => finish(() => reject(popupError(GOOGLE_POPUP_ERRORS.TIMEOUT))),
       TIMEOUT_MS,
@@ -127,6 +140,7 @@ export async function signInWithGoogle(
   popup: Window,
   start: () => Promise<GoogleAuthStart>,
   signal: AbortSignal,
+  onPopupClosed?: () => void,
 ): Promise<GoogleAuthInput> {
   const closePopup = () => popup.close();
   signal.addEventListener('abort', closePopup);
@@ -134,7 +148,7 @@ export async function signInWithGoogle(
     const [started, { verifier, challenge }] = await Promise.all([start(), pkce()]);
     signal.throwIfAborted();
     popup.location.href = authorizeUrl(started, challenge);
-    const code = await waitForCode(popup, started.state, signal);
+    const code = await waitForCode(popup, started.state, signal, onPopupClosed);
     return { code, state: started.state, codeVerifier: verifier, redirectUri: googleRedirectUri() };
   } catch (error) {
     popup.close();

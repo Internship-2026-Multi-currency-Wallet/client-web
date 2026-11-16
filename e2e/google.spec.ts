@@ -48,13 +48,14 @@ test('link Google in account settings, then log in with it', async ({ page }) =>
   await expect(page.getByText(demo.email)).toBeVisible();
 });
 
-test('cancelling the wait explains it, closes the window and allows a retry', async ({ page }) => {
+test('closing the Google window explains it and allows a retry', async ({ page }) => {
   await page.goto('/login');
   const popup = await openGoogle(page, 'Continue with Google');
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await popup.close();
 
+  await expect(page.getByText('Closed the Google window? Cancel to try again.')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('alert')).toHaveText('Google sign-in was cancelled.');
-  await expect.poll(() => popup.isClosed()).toBe(true);
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeEnabled();
 });
 
