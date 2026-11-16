@@ -7,14 +7,17 @@ import { refreshSessionMutation } from './session-refresh.wallet-core';
 /** wallet-core `AuthErrorCode`: the refresh-token cookie is missing, expired or already rotated. */
 export const INVALID_REFRESH_TOKEN = 'INVALID_REFRESH_TOKEN';
 
-// The cookie rotates on every refresh and the old one dies at once, so only one tab at a time may use it.
-const REFRESH_LOCK = 'wallet.refresh';
+// The refresh cookie is shared by all tabs and is replaced by every session-creating call (password login,
+// Google login, refresh), so those calls take one lock: whichever finishes last leaves both the cookie and the
+// stored session on the same user.
+const SESSION_LOCK = 'wallet.session';
 /** A hung refresh must not hold the lock (and every tab waiting on it) forever. */
 const REFRESH_TIMEOUT_MS = 15_000;
 
-function withRefreshLock<T>(callback: () => Promise<T>): Promise<T> {
-  // No Web Locks outside a secure context (e.g. the dev server opened via a LAN IP): refresh uncoordinated.
-  return navigator.locks ? navigator.locks.request(REFRESH_LOCK, callback) : callback();
+/** Runs `callback` alone among the tabs of this browser. */
+export function withSessionLock<T>(callback: () => Promise<T>): Promise<T> {
+  // No Web Locks outside a secure context (e.g. the dev server opened via a LAN IP): not coordinated.
+  return navigator.locks ? navigator.locks.request(SESSION_LOCK, callback) : callback();
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -30,7 +33,7 @@ export function refreshSession(): Promise<boolean> {
 
 async function refreshWithLock(): Promise<boolean> {
   const tokenAtStart = accessToken();
-  return withRefreshLock(async () => {
+  return withSessionLock(async () => {
     // Changed while we waited: another tab refreshed (reuse its token) or somebody logged out / in.
     if (accessToken() !== tokenAtStart || tokenAtStart === null) return accessToken() !== null;
     let payload;

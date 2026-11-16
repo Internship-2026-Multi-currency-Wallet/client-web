@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import type { LoginWithGoogleMutationVariables } from '../../gql/wallet-core/graphql';
 import { loadSession } from '../../graphql/session';
+import { mockAccessToken } from '../../mocks/auth-handlers';
 import { seedMockGoogleLink } from '../../mocks/google-handlers';
 import { server } from '../../mocks/server';
-import { OTHER_USER, otherTab, testSession } from '../../test/auth';
+import { OTHER_USER, otherTab, TEST_USER, testSession } from '../../test/auth';
 import { googleLoginOff, stubGooglePopup } from '../../test/google';
 import { errorResponse, walletCore } from '../../test/graphql-handlers';
+import { authApi } from './authApi';
 import { renderApp } from '../../test/render';
 
 const googleButton = () => screen.getByRole('button', { name: /continue with google|waiting/i });
@@ -257,5 +259,48 @@ describe('Continue with Google', () => {
     googleLoginOff();
     await openLogin();
     expect(screen.queryByRole('button', { name: /google/i })).not.toBeInTheDocument();
+  });
+
+  it('does not send a password login while a Google sign-in is replacing the session', async () => {
+    // The refresh cookie is shared by the tabs and every session-creating call replaces it: both logins take
+    // one lock, so the password login cannot reach the server during the Google exchange. When the Google
+    // session lands, another user is signed in and the queued password login is cancelled.
+    seedMockGoogleLink('1', 'demo.google@example.com');
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const session = (user: typeof TEST_USER) => ({
+      accessToken: mockAccessToken(user.id),
+      accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      user,
+    });
+    server.use(
+      walletCore.mutation('LoginWithGoogle', async () => {
+        order.push('google');
+        await gate;
+        return HttpResponse.json({ data: { loginWithGoogle: session(TEST_USER) } });
+      }),
+      walletCore.mutation('Login', () => {
+        order.push('password');
+        return HttpResponse.json({ data: { login: session(OTHER_USER) } });
+      }),
+    );
+    const google = stubGooglePopup();
+    const { store } = await openLogin();
+    await userEvent.click(googleButton());
+    await google.approve('demo.google@example.com');
+    await waitFor(() => expect(order).toEqual(['google']));
+
+    // Another tab's password login starts while Google's answer is still on its way.
+    const password = store.dispatch(
+      authApi.endpoints.login.initiate({ email: OTHER_USER.email, password: 'Qwerty1!' }),
+    );
+    await delay(100);
+    expect(order).toEqual(['google']);
+
+    release();
+    await password;
+    expect(order).toEqual(['google']);
+    expect(loadSession()?.user.id).toBe(TEST_USER.id);
   });
 });

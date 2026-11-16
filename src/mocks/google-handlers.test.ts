@@ -9,8 +9,11 @@ import {
   startGoogleLoginMutation,
   unlinkGoogleAccountMutation,
 } from '../features/auth/google.wallet-core';
+import { loginMutation } from '../features/auth/auth.wallet-core';
 import { OTHER_USER, TEST_USER, signInForTest } from '../test/auth';
-import { mockGoogleCode } from './google-handlers';
+import { googleLoginOff } from '../test/google';
+import { DEMO_USER } from './auth-handlers';
+import { mockGoogleCode, seedMockGoogleLink } from './google-handlers';
 
 const REDIRECT_URI = 'http://localhost:5173/auth/google/callback';
 
@@ -153,6 +156,9 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
     ['a relative path', '/auth/google/callback'],
     ['a trailing slash', 'http://localhost:5173/auth/google/callback/'],
     ['a query', 'http://localhost:5173/auth/google/callback?x=1'],
+    ['an empty query', 'http://localhost:5173/auth/google/callback?'],
+    ['a fragment', 'http://localhost:5173/auth/google/callback#x'],
+    ['an upper-case host', 'http://LOCALHOST:5173/auth/google/callback'],
   ])('answers BAD_USER_INPUT for a redirect URI with %s', async (_name, redirectUri) => {
     signInForTest();
     const { state } = await startLink();
@@ -221,5 +227,49 @@ describe('mock Google login (wallet-core E1-5 contract)', () => {
         'GOOGLE_ACCOUNT_NOT_LINKED',
       );
     });
+  });
+});
+
+describe('mock Google login: the auth.googleLogin setting and a locked account', () => {
+  it('answers GOOGLE_LOGIN_DISABLED wherever a sign-in starts or finishes, and still lets a user unlink', async () => {
+    signInForTest();
+    seedMockGoogleLink(TEST_USER.id, 'demo.google@example.com');
+    googleLoginOff();
+
+    const link = await errorOf(request('walletCore', startGoogleLinkMutation));
+    expect(link?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });
+    const login = await errorOf(request('walletCore', startGoogleLoginMutation));
+    expect(login?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });
+
+    const input = { code: 'garbage', state: 'garbage', redirectUri: REDIRECT_URI };
+    const finishLogin = await errorOf(request('walletCore', loginWithGoogleMutation, { input }));
+    expect(finishLogin?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });
+    const finishLink = await errorOf(request('walletCore', linkGoogleAccountMutation, { input }));
+    expect(finishLink?.extensions).toEqual({ code: 'GOOGLE_LOGIN_DISABLED' });
+
+    await expect(request('walletCore', unlinkGoogleAccountMutation)).resolves.toEqual({
+      unlinkGoogleAccount: true,
+    });
+  });
+
+  it('answers ACCOUNT_LOCKED for a Google login to an account locked by wrong passwords', async () => {
+    seedMockGoogleLink(TEST_USER.id, 'demo.google@example.com');
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request('walletCore', loginMutation, {
+        input: { email: DEMO_USER.email, password: 'Wrong1234!' },
+      }).catch(() => undefined);
+    }
+
+    const { state } = (await request('walletCore', startGoogleLoginMutation)).startGoogleLogin;
+    const error = await errorOf(
+      request('walletCore', loginWithGoogleMutation, {
+        input: {
+          code: mockGoogleCode('demo.google@example.com'),
+          state,
+          redirectUri: REDIRECT_URI,
+        },
+      }),
+    );
+    expect(error?.extensions).toMatchObject({ code: 'ACCOUNT_LOCKED' });
   });
 });

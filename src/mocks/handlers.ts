@@ -2,7 +2,7 @@ import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
 import { authHandlers, userIdFromBearer } from './auth-handlers';
-import { googleHandlers } from './google-handlers';
+import { googleHandlers, mockGoogleLoginEnabled } from './google-handlers';
 import type {
   MeQuery,
   PublicSettingsQuery,
@@ -49,7 +49,7 @@ export const handlers = [
     HttpResponse.json({
       data: {
         publicSettings: [
-          { key: 'auth.googleLogin', value: true },
+          { key: 'auth.googleLogin', value: mockGoogleLoginEnabled() },
           { key: 'auth.phoneRequiredAt', value: 'never' },
           { key: 'products.enabled', value: ['wallet'] },
         ],

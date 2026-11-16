@@ -4,6 +4,7 @@ import { useAppDispatch } from '../../app/store';
 import type { GoogleAccountQuery } from '../../gql/wallet-core/graphql';
 import { type GraphQLRequestError, toRequestError } from '../../graphql/errors';
 import { request, type RequestOptions } from '../../graphql/client';
+import { withSessionLock } from '../../graphql/refresh';
 import { loadSession, saveSession, sessionFromPayload } from '../../graphql/session';
 import { useClientSetting } from '../settings/useClientSetting';
 import {
@@ -127,14 +128,16 @@ export function useGoogleLogin(): GoogleFlow {
         ),
       signal,
     );
-    // Someone signed in meanwhile (e.g. in another tab): that session wins.
-    const stale = () => signal.aborted || loadSession() !== null;
-    if (stale()) return;
-    const { loginWithGoogle } = await serverCall(() =>
-      request('walletCore', loginWithGoogleMutation, { input }, NO_SESSION_RETRY),
-    );
-    if (stale()) return;
-    saveSession(sessionFromPayload(loginWithGoogle));
+    // Only the request and the save are locked, not the popup: see withSessionLock.
+    await withSessionLock(async () => {
+      // Someone signed in meanwhile (e.g. in another tab): that session wins, and no cookie is replaced.
+      if (signal.aborted || loadSession() !== null) return;
+      const { loginWithGoogle } = await serverCall(() =>
+        request('walletCore', loginWithGoogleMutation, { input }, NO_SESSION_RETRY),
+      );
+      // The answer has already replaced the refresh cookie, so the stored session must follow it.
+      saveSession(sessionFromPayload(loginWithGoogle));
+    });
   });
 }
 

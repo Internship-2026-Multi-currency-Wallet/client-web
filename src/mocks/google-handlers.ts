@@ -34,20 +34,24 @@ const CALLBACK_PATH = '/auth/google/callback';
 // a redirect URI it approves has to work against the real backend too.
 const ALLOWED_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', location.origin];
 
+// Exact string match, as on the backend: a trailing '?', '#' or an upper-case host is refused.
 function isAllowedRedirect(redirectUri: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(redirectUri);
-  } catch {
-    return false;
-  }
-  return (
-    ALLOWED_ORIGINS.includes(url.origin) &&
-    url.pathname === CALLBACK_PATH &&
-    url.search === '' &&
-    url.hash === ''
-  );
+  return ALLOWED_ORIGINS.map((origin) => origin + CALLBACK_PATH).includes(redirectUri);
 }
+
+const GOOGLE_LOGIN_SETTING_KEY = 'mock.google.enabled';
+
+/** The mock `auth.googleLogin` setting; the public settings answer reads it too. */
+export function mockGoogleLoginEnabled(): boolean {
+  return sessionStorage.getItem(GOOGLE_LOGIN_SETTING_KEY) !== 'false';
+}
+
+export function setMockGoogleLogin(enabled: boolean): void {
+  sessionStorage.setItem(GOOGLE_LOGIN_SETTING_KEY, String(enabled));
+}
+
+const googleLoginDisabled = () =>
+  graphqlError(AUTH_ERROR_CODES.GOOGLE_LOGIN_DISABLED, 'Sign in with Google is disabled');
 
 export function mockGoogleCode(email: string): string {
   return `${MOCK_GOOGLE_CODE_PREFIX}${email}`;
@@ -108,6 +112,7 @@ export function seedMockGoogleLink(userId: string, googleEmail: string): void {
 
 export function resetMockGoogle(): void {
   sessionStorage.removeItem(LINKS_KEY);
+  sessionStorage.removeItem(GOOGLE_LOGIN_SETTING_KEY);
   clearStateCookie();
 }
 
@@ -134,6 +139,7 @@ function verify(
   input: GoogleAuthInput,
   expected: { purpose: PendingSignIn['purpose']; userId: string | null },
 ): GoogleIdentity | ReturnType<typeof graphqlError> {
+  if (!mockGoogleLoginEnabled()) return googleLoginDisabled();
   const pending = readStateCookie();
   // One attempt per sign-in, as wallet-core clears the cookie whatever the result.
   clearStateCookie();
@@ -196,6 +202,7 @@ export const googleHandlers = [
   walletCore.mutation<StartGoogleLinkMutation>('StartGoogleLink', ({ request }) => {
     const userId = userIdFromBearer(request.headers.get('authorization'));
     if (!userId) return unauthenticated();
+    if (!mockGoogleLoginEnabled()) return googleLoginDisabled();
     return HttpResponse.json({ data: { startGoogleLink: start('link', userId) } });
   }),
 
@@ -239,7 +246,9 @@ export const googleHandlers = [
   }),
 
   walletCore.mutation<StartGoogleLoginMutation>('StartGoogleLogin', () =>
-    HttpResponse.json({ data: { startGoogleLogin: start('login', null) } }),
+    mockGoogleLoginEnabled()
+      ? HttpResponse.json({ data: { startGoogleLogin: start('login', null) } })
+      : googleLoginDisabled(),
   ),
 
   walletCore.mutation<LoginWithGoogleMutation, LoginWithGoogleMutationVariables>(

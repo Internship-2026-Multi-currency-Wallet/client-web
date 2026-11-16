@@ -1,5 +1,7 @@
 import { screen } from '@testing-library/react';
 import type { GoogleCallbackResult } from '../features/auth/googlePopup';
+import { server } from '../mocks/server';
+import { errorResponse, walletCore } from '../test/graphql-handlers';
 import { renderApp } from '../test/render';
 
 function listen() {
@@ -20,6 +22,31 @@ describe('GoogleCallbackPage', () => {
       renderApp('/auth/google/callback?state=s-1&code=c-1');
       expect(await channel.received).toEqual({ state: 's-1', code: 'c-1', error: null });
       expect(close).toHaveBeenCalled();
+    } finally {
+      channel.close();
+    }
+  });
+
+  it('takes the code out of the address bar', async () => {
+    vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const channel = listen();
+    try {
+      renderApp('/auth/google/callback?state=s-3&code=c-3');
+      await channel.received;
+      expect(location.search).toBe('');
+      expect(location.pathname).toBe('/auth/google/callback');
+    } finally {
+      channel.close();
+    }
+  });
+
+  it('hands the answer over even when the settings cannot load', async () => {
+    server.use(walletCore.query('PublicSettings', () => errorResponse('INTERNAL_SERVER_ERROR')));
+    vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const channel = listen();
+    try {
+      renderApp('/auth/google/callback?state=s-4&code=c-4');
+      expect(await channel.received).toEqual({ state: 's-4', code: 'c-4', error: null });
     } finally {
       channel.close();
     }
