@@ -129,15 +129,27 @@ function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unk
   return { start, cancel, isPending, error, reset: () => setError(null) };
 }
 
+// A start sets the google_auth_state cookie when it answers, also after its sign-in was cancelled. Starts run one
+// at a time, so an earlier answer can never replace the cookie of a later sign-in.
+let startQueue: Promise<unknown> = Promise.resolve();
+
+function serializedStart<T>(call: () => Promise<T>): Promise<T> {
+  const run = startQueue.then(call, call);
+  startQueue = run.catch(() => undefined);
+  return run;
+}
+
 export function useGoogleLogin(): GoogleFlow {
   return useGoogleFlow(async (popup, signal) => {
     const input = await signInWithGoogle(
       popup,
       () =>
-        serverCall(
-          async () =>
-            (await request('walletCore', startGoogleLoginMutation, undefined, NO_SESSION_RETRY))
-              .startGoogleLogin,
+        serializedStart(() =>
+          serverCall(
+            async () =>
+              (await request('walletCore', startGoogleLoginMutation, undefined, NO_SESSION_RETRY))
+                .startGoogleLogin,
+          ),
         ),
       signal,
     );
@@ -159,8 +171,10 @@ export function useGoogleLink(userId: string): GoogleFlow {
     const input = await signInWithGoogle(
       popup,
       () =>
-        serverCall(
-          async () => (await request('walletCore', startGoogleLinkMutation)).startGoogleLink,
+        serializedStart(() =>
+          serverCall(
+            async () => (await request('walletCore', startGoogleLinkMutation)).startGoogleLink,
+          ),
         ),
       signal,
     );

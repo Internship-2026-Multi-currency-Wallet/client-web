@@ -321,4 +321,40 @@ describe('Continue with Google', () => {
     expect(order).toEqual(['google']);
     expect(loadSession()?.user.id).toBe(TEST_USER.id);
   });
+
+  it('does not send a new start until a cancelled one has answered', async () => {
+    // A start answers with the google_auth_state cookie: a late answer must not replace a newer one.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let starts = 0;
+    server.use(
+      walletCore.mutation('StartGoogleLogin', async () => {
+        starts += 1;
+        const state = `s-${starts}`;
+        if (starts === 1) await gate;
+        return HttpResponse.json({
+          data: {
+            startGoogleLogin: {
+              state,
+              nonce: `n-${state}`,
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            },
+          },
+        });
+      }),
+    );
+    const google = stubGooglePopup();
+    await openLogin();
+    await userEvent.click(googleButton());
+    await waitFor(() => expect(starts).toBe(1));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(googleButton());
+    expect(google.open).toHaveBeenCalledTimes(2);
+    await delay(100);
+    expect(starts).toBe(1);
+
+    release();
+    await waitFor(() => expect(starts).toBe(2));
+  });
 });
