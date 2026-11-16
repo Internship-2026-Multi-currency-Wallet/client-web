@@ -107,7 +107,6 @@ function waitForCode(popup: Window, state: string, signal: AbortSignal): Promise
         const code = data.code;
         finish(() => resolve(code));
       } else {
-        // `access_denied` = the user pressed Cancel on Google's screen.
         const code =
           data.error === 'access_denied'
             ? GOOGLE_POPUP_ERRORS.POPUP_CLOSED

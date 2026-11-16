@@ -129,8 +129,7 @@ function useGoogleFlow(flow: (popup: Window, signal: AbortSignal) => Promise<unk
   return { start, cancel, isPending, error, reset: () => setError(null) };
 }
 
-// A start sets the google_auth_state cookie when it answers, also after its sign-in was cancelled. Starts run one
-// at a time, so an earlier answer can never replace the cookie of a later sign-in.
+// Serialize starts because even a cancelled sign-in's response can overwrite the shared `google_auth_state` cookie.
 let startQueue: Promise<unknown> = Promise.resolve();
 
 function serializedStart<T>(call: () => Promise<T>): Promise<T> {
