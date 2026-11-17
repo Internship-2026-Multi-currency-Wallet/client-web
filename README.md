@@ -124,6 +124,8 @@ Sign-up (`/signup`), login (`/login`) and logout; wallet pages are behind `Requi
   with PKCE (`src/features/auth/googlePopup.ts`): `startGoogleLogin` / `startGoogleLink` → Google →
   `/auth/google/callback`, which hands `code` and `state` to the app window over a `BroadcastChannel` and closes →
   `loginWithGoogle` / `linkGoogleAccount`. The popup is opened in the click itself, so browsers do not block it.
+  When the setting is off, the button and the Google section of `/account` are not rendered at all. In mock mode, turn it off
+  with `sessionStorage.setItem('mock.google.enabled', 'false')` in the browser console and reload.
 - **Google in mock mode:** the popup shows a mock Google screen (`/auth/google/mock`, mock builds only) where you type
   any Google email. An email starting with `unverified` answers `GOOGLE_EMAIL_NOT_VERIFIED`. The started sign-in
   lives in a `google_auth_state` cookie, as on the backend, except that JavaScript cannot make it httpOnly; mock links
