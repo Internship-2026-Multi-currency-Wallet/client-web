@@ -11,6 +11,7 @@ import type {
 } from '../gql/wallet-core/graphql';
 import { EMAIL_PATTERN, normalizeEmail, PHONE_PATTERN } from '../features/auth/validation';
 import { AUTH_ERROR_CODES } from '../features/auth/authErrors';
+import type { ClientSettings } from '../features/settings/clientSettings';
 
 /**
  * Mock of the wallet-core auth contract. The HttpOnly refresh cookie is imitated by a plain `mock_refresh` cookie;
@@ -57,8 +58,22 @@ function persistUsers(): void {
   sessionStorage.setItem(USERS_KEY, JSON.stringify([...users.values()]));
 }
 
+type PhoneRequiredAt = ClientSettings['auth.phoneRequiredAt'];
+
+const PHONE_REQUIRED_AT_KEY = 'mock.auth.phoneRequiredAt';
+
+/** Mock value of the `auth.phoneRequiredAt` setting, shared by `PublicSettings` and `Register`. */
+export function mockPhoneRequiredAt(): PhoneRequiredAt {
+  return (sessionStorage.getItem(PHONE_REQUIRED_AT_KEY) as PhoneRequiredAt | null) ?? 'never';
+}
+
+export function setMockPhoneRequiredAt(value: PhoneRequiredAt): void {
+  sessionStorage.setItem(PHONE_REQUIRED_AT_KEY, value);
+}
+
 export function resetMockAuth(): void {
   sessionStorage.removeItem(USERS_KEY);
+  sessionStorage.removeItem(PHONE_REQUIRED_AT_KEY);
   users = loadUsers();
   clearMockRefreshCookie();
 }
@@ -114,6 +129,10 @@ export function authPayload(user: MockUser) {
   };
 }
 
+/** Like wallet-core: `null`, `""` and whitespace mean no phone. */
+const phoneOf = (input: RegisterMutationVariables['input']): string | null =>
+  input.phone == null || input.phone.trim() === '' ? null : input.phone;
+
 /** The first invalid field, in the order and with the messages of wallet-core's `registerInputSchema`. */
 function registerInputProblem(input: RegisterMutationVariables['input']) {
   const email = normalizeEmail(input.email);
@@ -136,7 +155,8 @@ function registerInputProblem(input: RegisterMutationVariables['input']) {
   if (!/[^\p{L}\p{N}]/u.test(p)) {
     return { field: 'password', message: 'Password must contain at least one special character' };
   }
-  if (input.phone != null && !PHONE_PATTERN.test(input.phone)) {
+  const phone = phoneOf(input);
+  if (phone !== null && !PHONE_PATTERN.test(phone)) {
     return { field: 'phone', message: 'Phone must be in international format, e.g. +380501234567' };
   }
   return null;
@@ -180,6 +200,10 @@ export const authHandlers = [
       return graphqlError(AUTH_ERROR_CODES.BAD_USER_INPUT, problem.message, {
         field: problem.field,
       });
+    const phone = phoneOf(input);
+    if (phone === null && mockPhoneRequiredAt() === 'signup') {
+      return graphqlError(AUTH_ERROR_CODES.PHONE_REQUIRED, 'Phone is required', { field: 'phone' });
+    }
 
     const email = normalizeEmail(input.email);
     if (users.has(email)) {
@@ -188,7 +212,7 @@ export const authHandlers = [
     const user: MockUser = {
       id: String(Math.max(0, ...[...users.values()].map((u) => Number(u.id))) + 1),
       email,
-      phone: input.phone ?? null,
+      phone,
       password: input.password,
       failedLogins: 0,
       lockedUntil: null,

@@ -4,7 +4,7 @@ import {
   describeRegisterError,
   formatUnlockTime,
 } from './authErrors';
-import { PASSWORD_HINT, PHONE_HINT } from './validation';
+import { PASSWORD_HINT, PHONE_HINT, PHONE_REQUIRED } from './validation';
 
 describe('describeLoginError', () => {
   it('keeps INVALID_CREDENTIALS generic', () => {
@@ -78,6 +78,12 @@ describe('describeRegisterError', () => {
     ).toEqual({
       fieldErrors: { email: 'Enter a valid email address' },
     });
+  });
+
+  it('maps PHONE_REQUIRED to the phone field', () => {
+    expect(
+      describeRegisterError({ code: 'PHONE_REQUIRED', field: 'phone', message: 'dev' }),
+    ).toEqual({ fieldErrors: { phone: PHONE_REQUIRED } });
   });
 
   it('falls back to a form error for an unknown field or code', () => {
