@@ -27,7 +27,6 @@ const backend = z.object({
     .regex(/\d/, 'password')
     .regex(/\p{Lu}/u, 'password')
     .regex(/[^\p{L}\p{N}]/u, 'password'),
-  // Blank phone = no phone: wallet-core PR #50, not merged yet.
   phone: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
     z
