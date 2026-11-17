@@ -79,8 +79,8 @@ function toFlowError(error: unknown): GraphQLRequestError {
   return { code: 'CLIENT_ERROR', message: error instanceof Error ? error.message : String(error) };
 }
 
-export interface GoogleFlow {
-  start: () => void;
+export interface GoogleFlow<T = void> {
+  start: (arg: T) => void;
   cancel: () => void;
   isPending: boolean;
   /** The popup looks closed; it may still be open (COOP), so the sign-in goes on. */
@@ -89,9 +89,9 @@ export interface GoogleFlow {
   reset: () => void;
 }
 
-function useGoogleFlow(
-  flow: (popup: Window, signal: AbortSignal, onPopupClosed: () => void) => Promise<unknown>,
-): GoogleFlow {
+function useGoogleFlow<T = void>(
+  flow: (arg: T, popup: Window, signal: AbortSignal, onPopupClosed: () => void) => Promise<unknown>,
+): GoogleFlow<T> {
   const [isPending, setPending] = useState(false);
   const [popupClosed, setPopupClosed] = useState(false);
   const [error, setError] = useState<GraphQLRequestError | null>(null);
@@ -100,7 +100,7 @@ function useGoogleFlow(
   // Cancellation prevents starting an exchange but cannot undo an exchange already sent.
   useEffect(() => () => running.forEach((controller) => controller.abort()), [running]);
 
-  const start = () => {
+  const start = (arg: T) => {
     if (isPending) return;
     setError(null);
     let popup: Window;
@@ -114,7 +114,7 @@ function useGoogleFlow(
     running.add(controller);
     setPending(true);
     setPopupClosed(false);
-    flow(popup, controller.signal, () => {
+    flow(arg, popup, controller.signal, () => {
       if (!controller.signal.aborted) setPopupClosed(true);
     })
       .catch((failure: unknown) => {
@@ -150,7 +150,7 @@ function serializedStart<T>(call: () => Promise<T>): Promise<T> {
 }
 
 export function useGoogleLogin(): GoogleFlow {
-  return useGoogleFlow(async (popup, signal, onPopupClosed) => {
+  return useGoogleFlow(async (_arg, popup, signal, onPopupClosed) => {
     const input = await signInWithGoogle(
       popup,
       () =>
@@ -177,15 +177,16 @@ export function useGoogleLogin(): GoogleFlow {
   });
 }
 
-export function useGoogleLink(userId: string): GoogleFlow {
+export function useGoogleLink(userId: string): GoogleFlow<string> {
   const dispatch = useAppDispatch();
-  return useGoogleFlow(async (popup, signal, onPopupClosed) => {
+  return useGoogleFlow<string>(async (password, popup, signal, onPopupClosed) => {
     const input = await signInWithGoogle(
       popup,
       () =>
         serializedStart(() =>
           serverCall(
-            async () => (await request('walletCore', startGoogleLinkMutation)).startGoogleLink,
+            async () =>
+              (await request('walletCore', startGoogleLinkMutation, { password })).startGoogleLink,
           ),
         ),
       signal,

@@ -13,7 +13,7 @@ export function GoogleLoginButton({ flow, disabled = false }: GoogleLoginButtonP
       {flow.error && <Alert severity="error">{describeGoogleLoginError(flow.error)}</Alert>}
       <Button
         variant="outlined"
-        onClick={flow.start}
+        onClick={() => flow.start()}
         disabled={disabled || flow.isPending}
         startIcon={
           <Box component="img" src="/icons/google.svg" alt="" sx={{ width: 18, height: 18 }} />

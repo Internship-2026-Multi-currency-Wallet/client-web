@@ -96,6 +96,10 @@ export function describeGoogleLinkError(error: Partial<GraphQLRequestError>): st
       return 'This Google account is already linked to another user.';
     case AUTH_ERROR_CODES.GOOGLE_ACCOUNT_ALREADY_LINKED:
       return 'Another Google account is already linked. Unlink it first.';
+    case AUTH_ERROR_CODES.INVALID_CREDENTIALS:
+      return 'Wrong password. Please try again.';
+    case AUTH_ERROR_CODES.ACCOUNT_LOCKED:
+      return describeLoginError(error);
     default:
       return describeGoogleCommonError(error) ?? unknownError(error);
   }
