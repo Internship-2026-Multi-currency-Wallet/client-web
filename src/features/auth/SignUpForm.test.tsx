@@ -250,6 +250,18 @@ describe('SignUpForm', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ phone: '+1234567' }));
   });
 
+  it('applies the new rule when phoneRequired changes', async () => {
+    const onSubmit = vi.fn();
+    const { rerender } = render(<SignUpForm onSubmit={onSubmit} />);
+    rerender(<SignUpForm onSubmit={onSubmit} phoneRequired />);
+    await userEvent.type(screen.getByLabelText(/^email/i), 'user@example.com');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'Secret123!');
+    await userEvent.click(screen.getByRole('button', { name: /sign up/i }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^phone/i)).toHaveAccessibleDescription('Enter your phone number');
+  });
+
   it('labels the phone optional by default', () => {
     const { phone } = setup();
     expect(phone).not.toBeRequired();

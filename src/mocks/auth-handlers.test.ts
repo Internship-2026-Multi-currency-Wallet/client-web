@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ClientError } from 'graphql-request';
 import { request } from '../graphql/client';
 import { registerMutation } from '../features/auth/auth.wallet-core';
+import { setMockPhoneRequiredAt } from './auth-handlers';
 
 const register = (password: string) =>
   request('walletCore', registerMutation, {
@@ -30,7 +31,7 @@ describe('mock Register: password length (backend: 8-128, separate messages)', (
   });
 });
 
-const registerWith = (input: { email?: string; password?: string; phone?: string }) =>
+const registerWith = (input: { email?: string; password?: string; phone?: string | null }) =>
   request('walletCore', registerMutation, {
     input: { email: 'mock-input@example.com', password: 'Secret123!', ...input },
   });
@@ -69,4 +70,47 @@ describe('mock Register: phone, password digit and email length (backend PR #8)'
       extensions: { code: 'BAD_USER_INPUT', field: 'email' },
     });
   });
+});
+
+describe('mock Register: auth.phoneRequiredAt (backend PR #50)', () => {
+  const NO_PHONE = [{}, { phone: null }, { phone: '' }, { phone: '  ' }];
+
+  it.each(NO_PHONE)('answers PHONE_REQUIRED at signup without a phone: %j', async (phone) => {
+    setMockPhoneRequiredAt('signup');
+    expect(await problemOf(registerWith(phone))).toMatchObject({
+      message: 'Phone is required',
+      extensions: { code: 'PHONE_REQUIRED', field: 'phone' },
+    });
+  });
+
+  it('answers BAD_USER_INPUT, not PHONE_REQUIRED, for an invalid phone at signup', async () => {
+    setMockPhoneRequiredAt('signup');
+    expect(await problemOf(registerWith({ phone: ' +380501234567 ' }))).toMatchObject({
+      extensions: { code: 'BAD_USER_INPUT', field: 'phone' },
+    });
+  });
+
+  it('reports a broken password before the missing phone', async () => {
+    setMockPhoneRequiredAt('signup');
+    expect(await problemOf(registerWith({ password: 'short' }))).toMatchObject({
+      extensions: { code: 'BAD_USER_INPUT', field: 'password' },
+    });
+  });
+
+  it('registers with a phone at signup', async () => {
+    setMockPhoneRequiredAt('signup');
+    await expect(registerWith({ phone: '+380501234567' })).resolves.toMatchObject({
+      register: { phone: '+380501234567' },
+    });
+  });
+
+  it.each(['never', 'firstTransfer'] as const)(
+    'registers without a phone and stores null when it is %s',
+    async (value) => {
+      setMockPhoneRequiredAt(value);
+      await expect(registerWith({ phone: '  ' })).resolves.toMatchObject({
+        register: { phone: null },
+      });
+    },
+  );
 });
