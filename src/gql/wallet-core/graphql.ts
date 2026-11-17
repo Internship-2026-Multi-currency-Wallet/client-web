@@ -30,7 +30,7 @@ export type RegisterInput = {
   email: string;
   /** 8 to 128 characters, with at least one digit, one uppercase letter and one special character (not a letter or digit). */
   password: string;
-  /** Optional phone number in international format, e.g. "+380501234567". */
+  /** Phone number in international format, e.g. "+380501234567". Required when the client setting auth.phoneRequiredAt is "signup" (otherwise optional); null, "" and whitespace count as no phone. */
   phone?: string | null | undefined;
 };
 
