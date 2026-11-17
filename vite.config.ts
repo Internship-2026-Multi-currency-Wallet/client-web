@@ -46,6 +46,9 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     // Tests run as dev user 1 against MSW mocks.
-    env: { VITE_DEV_USER: '1:wallet' },
+    env: {
+      VITE_DEV_USER: '1:wallet',
+      VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
+    },
   },
 });

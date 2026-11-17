@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { resetMockAuth } from '../mocks/auth-handlers';
+import { resetMockGoogle } from '../mocks/google-handlers';
 import { server } from '../mocks/server';
 
 configure({ asyncUtilTimeout: 5000 });
@@ -27,5 +28,6 @@ afterEach(() => {
   server.resetHandlers();
   localStorage.clear();
   resetMockAuth();
+  resetMockGoogle();
 });
 afterAll(() => server.close());

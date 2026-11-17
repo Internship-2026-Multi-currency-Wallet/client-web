@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router';
+import { config } from '../config-env';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { AppLayout, type MenuItem } from '../layout/AppLayout';
 import { FullPageLoader } from '../layout/FullPageLoader';
@@ -16,6 +17,20 @@ const PRODUCTS: Record<string, Product> = {
 };
 
 const HOME: MenuItem = { path: '/', label: 'Home' };
+
+// The literal `import.meta.env` check lets Vite drop the mock page (and MSW) from builds without mocks.
+const MOCK_ROUTES: RouteObject[] =
+  import.meta.env.VITE_USE_MOCKS === 'true' && config.useMocks
+    ? [
+        {
+          path: 'auth/google/mock',
+          lazy: async () => ({
+            Component: (await import('../pages/MockGooglePage')).MockGooglePage,
+          }),
+          HydrateFallback: () => null,
+        },
+      ]
+    : [];
 
 export interface AppRoutes {
   routes: RouteObject[];
@@ -42,6 +57,12 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
                 index: true,
                 lazy: async () => ({ Component: (await import('../pages/HomePage')).HomePage }),
               },
+              {
+                path: 'account',
+                lazy: async () => ({
+                  Component: (await import('../pages/AccountPage')).AccountPage,
+                }),
+              },
               ...products.map(({ path, lazy }) => ({ path, lazy })),
             ],
           },
@@ -59,6 +80,14 @@ export function buildAppRoutes(enabledProducts: readonly string[]): AppRoutes {
           },
         ],
       },
+      {
+        path: 'auth/google/callback',
+        lazy: async () => ({
+          Component: (await import('../pages/GoogleCallbackPage')).GoogleCallbackPage,
+        }),
+        HydrateFallback: () => null,
+      },
+      ...MOCK_ROUTES,
     ],
   };
 }

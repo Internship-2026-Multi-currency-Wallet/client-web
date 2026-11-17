@@ -17,6 +17,12 @@ type Documents = {
     "\n  mutation Register($input: RegisterInput!) {\n    register(input: $input) {\n      id\n      email\n      phone\n    }\n  }\n": typeof types.RegisterDocument,
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": typeof types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
+    "\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n": typeof types.GoogleAccountDocument,
+    "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": typeof types.StartGoogleLinkDocument,
+    "\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n": typeof types.LinkGoogleAccountDocument,
+    "\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n": typeof types.UnlinkGoogleAccountDocument,
+    "\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": typeof types.StartGoogleLoginDocument,
+    "\n  mutation LoginWithGoogle($input: GoogleAuthInput!) {\n    loginWithGoogle(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": typeof types.LoginWithGoogleDocument,
     "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": typeof types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": typeof types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n": typeof types.MeDocument,
@@ -26,6 +32,12 @@ const documents: Documents = {
     "\n  mutation Register($input: RegisterInput!) {\n    register(input: $input) {\n      id\n      email\n      phone\n    }\n  }\n": types.RegisterDocument,
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
+    "\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n": types.GoogleAccountDocument,
+    "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": types.StartGoogleLinkDocument,
+    "\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n": types.LinkGoogleAccountDocument,
+    "\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n": types.UnlinkGoogleAccountDocument,
+    "\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n": types.StartGoogleLoginDocument,
+    "\n  mutation LoginWithGoogle($input: GoogleAuthInput!) {\n    loginWithGoogle(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n": types.LoginWithGoogleDocument,
     "\n  query PublicSettings {\n    publicSettings {\n      key\n      value\n    }\n  }\n": types.PublicSettingsDocument,
     "\n  query WalletCoreHealth {\n    health {\n      service\n      version\n      client\n      db\n      redis\n    }\n  }\n": types.WalletCoreHealthDocument,
     "\n  query Me {\n    me {\n      id\n      kind\n      permissions\n      strategy\n    }\n  }\n": types.MeDocument,
@@ -58,6 +70,30 @@ export function graphql(source: "\n  mutation Login($input: LoginInput!) {\n    
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation Logout {\n    logout\n  }\n"): (typeof documents)["\n  mutation Logout {\n    logout\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n"): (typeof documents)["\n  query GoogleAccount {\n    googleAccount {\n      email\n      linkedAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation StartGoogleLink {\n    startGoogleLink {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n"): (typeof documents)["\n  mutation LinkGoogleAccount($input: GoogleAuthInput!) {\n    linkGoogleAccount(input: $input) {\n      email\n      linkedAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n"): (typeof documents)["\n  mutation UnlinkGoogleAccount {\n    unlinkGoogleAccount\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation StartGoogleLogin {\n    startGoogleLogin {\n      state\n      nonce\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation LoginWithGoogle($input: GoogleAuthInput!) {\n    loginWithGoogle(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation LoginWithGoogle($input: GoogleAuthInput!) {\n    loginWithGoogle(input: $input) {\n      accessToken\n      accessTokenExpiresAt\n      user {\n        id\n        email\n        phone\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

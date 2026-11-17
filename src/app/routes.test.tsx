@@ -25,7 +25,7 @@ function protectedRouteNames(enabledProducts: string[]): (string | undefined)[] 
 
 describe('buildAppRoutes', () => {
   it('adds the route and the menu item of an enabled product', () => {
-    expect(routeNames(['wallet'])).toEqual(['index', '/wallet', 'login', 'signup', '*']);
+    expect(routeNames(['wallet'])).toEqual(['index', 'account', '/wallet', 'login', 'signup', '*']);
     expect(buildAppRoutes(['wallet']).menuItems).toEqual([
       { path: '/', label: 'Home' },
       { path: '/wallet', label: 'Wallet' },
@@ -33,7 +33,7 @@ describe('buildAppRoutes', () => {
   });
 
   it('has no route and no menu item for a product that is not enabled', () => {
-    expect(routeNames([])).toEqual(['index', 'login', 'signup', '*']);
+    expect(routeNames([])).toEqual(['index', 'account', 'login', 'signup', '*']);
     expect(buildAppRoutes([]).menuItems).toEqual([{ path: '/', label: 'Home' }]);
   });
 
@@ -44,8 +44,13 @@ describe('buildAppRoutes', () => {
     );
   });
 
-  it('puts home and every product behind the login; login, sign-up and not-found stay public', () => {
-    expect(protectedRouteNames(['wallet'])).toEqual(['index', '/wallet']);
+  it('puts home, account and every product behind the login; login, sign-up and not-found stay public', () => {
+    expect(protectedRouteNames(['wallet'])).toEqual(['index', 'account', '/wallet']);
+  });
+
+  it('serves the Google callback outside the layout and without a login', () => {
+    const [, ...outside] = buildAppRoutes(['wallet']).routes;
+    expect(names(outside)).toEqual(['auth/google/callback']);
   });
 
   it('loads every page lazily, so each page is its own chunk', () => {
