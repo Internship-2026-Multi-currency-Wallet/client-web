@@ -1,4 +1,4 @@
-import { canEstimatePassword, loadPasswordEstimator } from './passwordStrength';
+import { canEstimatePassword, loadPasswordEstimator } from './passwordEstimator';
 
 it('initializes the real library once with dictionaries and English feedback', async () => {
   const pending = loadPasswordEstimator();
