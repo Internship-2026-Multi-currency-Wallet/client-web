@@ -62,7 +62,7 @@ type PhoneRequiredAt = ClientSettings['auth.phoneRequiredAt'];
 
 const PHONE_REQUIRED_AT_KEY = 'mock.auth.phoneRequiredAt';
 
-/** Mock value of the `auth.phoneRequiredAt` setting, shared by `PublicSettings` and `Register`. */
+/** `PublicSettings` and `Register` must read the same value, so the advertised requirement matches enforcement. */
 export function mockPhoneRequiredAt(): PhoneRequiredAt {
   return (sessionStorage.getItem(PHONE_REQUIRED_AT_KEY) as PhoneRequiredAt | null) ?? 'never';
 }
@@ -125,10 +125,7 @@ function authPayload(user: MockUser) {
   };
 }
 
-/**
- * Like wallet-core: `null`, `""` and whitespace mean no phone. Request variables are unchecked JSON, so the phone
- * may be any value (e.g. `123`): `registerInputProblem` rejects every value that is not a valid phone string.
- */
+/** Like wallet-core: `null`, `""` and whitespace-only strings mean no phone. */
 const phoneOf = ({ phone }: { phone?: unknown }): unknown =>
   phone == null || (typeof phone === 'string' && phone.trim() === '') ? null : phone;
 
