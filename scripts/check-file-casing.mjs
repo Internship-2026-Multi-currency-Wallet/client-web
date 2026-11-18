@@ -1,4 +1,3 @@
-// Fails when two tracked files would clash on a case-insensitive disk (macOS, Windows).
 import { execFileSync } from 'node:child_process';
 
 const MODULE_EXT = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
@@ -17,7 +16,7 @@ const group = (keyOf) => {
   return [...groups.values()];
 };
 
-// The same path in different case, or the same module name (`./Foo` -> Foo.tsx or foo.ts) in different case.
+// Extensionless imports can collide on case-insensitive filesystems even when the files have different extensions.
 const clashes = new Set(
   [
     ...group((f) => f.toLowerCase()).filter((paths) => paths.length > 1),
