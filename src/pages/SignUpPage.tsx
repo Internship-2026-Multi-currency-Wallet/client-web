@@ -7,10 +7,12 @@ import { useRegisterMutation } from '../features/auth/authApi';
 import { describeRegisterError } from '../features/auth/authErrors';
 import { selectUser } from '../features/auth/authSlice';
 import { SignUpForm } from '../features/auth/SignUpForm';
+import { useClientSetting } from '../features/settings/useClientSetting';
 
 export function SignUpPage() {
   usePageTitle('Sign up');
   const [register, { isLoading, error, reset }] = useRegisterMutation();
+  const phoneRequiredAt = useClientSetting('auth.phoneRequiredAt');
   const user = useAppSelector(selectUser);
   const navigate = useNavigate();
   const from = (useLocation().state as { from?: string } | null)?.from;
@@ -45,6 +47,7 @@ export function SignUpPage() {
               void navigate('/login', { replace: true, state: { registered: true, from } });
             }}
             isSubmitting={isLoading}
+            phoneRequired={phoneRequiredAt === 'signup'}
             serverError={formError}
             onEdit={reset}
           />

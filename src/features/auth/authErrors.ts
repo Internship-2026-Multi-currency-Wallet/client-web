@@ -1,10 +1,11 @@
 import type { GraphQLRequestError } from '../../graphql/errors';
 import { INVALID_REFRESH_TOKEN } from '../../graphql/refresh';
-import { PASSWORD_HINT, PHONE_HINT } from './validation';
+import { PASSWORD_HINT, PHONE_HINT, PHONE_REQUIRED } from './validation';
 
 /** Same values as `AuthErrorCode` in wallet-core. */
 export const AUTH_ERROR_CODES = {
   BAD_USER_INPUT: 'BAD_USER_INPUT',
+  PHONE_REQUIRED: 'PHONE_REQUIRED',
   EMAIL_ALREADY_REGISTERED: 'EMAIL_ALREADY_REGISTERED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
@@ -60,6 +61,9 @@ export interface RegisterErrorView {
 export function describeRegisterError(error: Partial<GraphQLRequestError>): RegisterErrorView {
   if (error.code === AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED) {
     return { fieldErrors: { email: 'This email is already registered. Log in instead.' } };
+  }
+  if (error.code === AUTH_ERROR_CODES.PHONE_REQUIRED) {
+    return { fieldErrors: { phone: PHONE_REQUIRED } };
   }
   if (error.code === AUTH_ERROR_CODES.BAD_USER_INPUT) {
     switch (error.field) {

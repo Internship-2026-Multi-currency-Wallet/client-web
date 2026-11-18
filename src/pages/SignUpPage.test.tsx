@@ -4,7 +4,7 @@ import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
 import { loadSession } from '../graphql/session';
-import { DEMO_USER } from '../mocks/auth-handlers';
+import { DEMO_USER, setMockPhoneRequiredAt } from '../mocks/auth-handlers';
 import { server } from '../mocks/server';
 import { signInForTest } from '../test/auth';
 import { errorResponse, walletCore } from '../test/graphql-handlers';
@@ -210,6 +210,72 @@ describe('SignUpPage', () => {
     expect(input).toHaveAccessibleDescription(text);
     await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByText('dev message')).not.toBeInTheDocument();
+  });
+
+  describe('auth.phoneRequiredAt', () => {
+    it('requires the phone at signup: empty blocks the request, then the account is created', async () => {
+      setMockPhoneRequiredAt('signup');
+      let calls = 0;
+      // Counts and falls through to the default mock.
+      server.use(
+        walletCore.mutation('Register', () => {
+          calls += 1;
+        }),
+      );
+      const { router } = await open();
+      expect(phone()).toBeRequired();
+      expect(screen.queryByLabelText('Phone (optional)')).not.toBeInTheDocument();
+      await userEvent.type(email(), NEW_USER.email);
+      await userEvent.type(password(), NEW_USER.password);
+      await userEvent.click(submit());
+
+      expect(phone()).toHaveAccessibleDescription('Enter your phone number');
+      await waitFor(() => expect(phone()).toHaveFocus());
+      expect(calls).toBe(0);
+
+      await userEvent.type(phone(), '+380501234567');
+      await userEvent.click(submit());
+      expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/login');
+      expect(calls).toBe(1);
+    });
+
+    it.each(['never', 'firstTransfer'] as const)(
+      'keeps the phone optional and registers without it when it is %s',
+      async (value) => {
+        setMockPhoneRequiredAt(value);
+        const { router } = await open();
+        expect(phone()).not.toBeRequired();
+        expect(screen.getByLabelText('Phone (optional)')).toBe(phone());
+        await userEvent.type(email(), NEW_USER.email);
+        await userEvent.type(password(), NEW_USER.password);
+        await userEvent.click(submit());
+
+        expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+        expect(router.state.location.pathname).toBe('/login');
+      },
+    );
+
+    it('shows a server PHONE_REQUIRED under the phone', async () => {
+      server.use(
+        walletCore.mutation('Register', () =>
+          HttpResponse.json({
+            errors: [
+              { message: 'dev message', extensions: { code: 'PHONE_REQUIRED', field: 'phone' } },
+            ],
+          }),
+        ),
+      );
+      await open();
+      await userEvent.type(email(), NEW_USER.email);
+      await userEvent.type(password(), NEW_USER.password);
+      await userEvent.click(submit());
+
+      await waitFor(() => expect(phone()).toHaveAccessibleDescription('Enter your phone number'));
+      await waitFor(() => expect(phone()).toHaveFocus());
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByText('dev message')).not.toBeInTheDocument();
+    });
   });
 
   it('shows a generic message for unexpected server errors', async () => {

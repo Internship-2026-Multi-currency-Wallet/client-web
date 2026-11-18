@@ -1,5 +1,5 @@
 import { describeLoginError, describeRegisterError, formatUnlockTime } from './authErrors';
-import { PASSWORD_HINT, PHONE_HINT } from './validation';
+import { PASSWORD_HINT, PHONE_HINT, PHONE_REQUIRED } from './validation';
 
 describe('describeLoginError', () => {
   it('keeps INVALID_CREDENTIALS generic', () => {
@@ -54,6 +54,17 @@ describe('describeRegisterError', () => {
       describeRegisterError({ code: 'BAD_USER_INPUT', field: 'email', message: 'dev' }),
     ).toEqual({
       fieldErrors: { email: 'Enter a valid email address' },
+    });
+  });
+
+  it.each([
+    { case: "field 'phone'", field: 'phone' },
+    { case: 'no field', field: undefined },
+    { case: "field 'email'", field: 'email' },
+    { case: 'a non-string field', field: 123 as unknown as string },
+  ])('maps PHONE_REQUIRED to the phone field with $case', ({ field }) => {
+    expect(describeRegisterError({ code: 'PHONE_REQUIRED', field, message: 'dev' })).toEqual({
+      fieldErrors: { phone: PHONE_REQUIRED },
     });
   });
 
