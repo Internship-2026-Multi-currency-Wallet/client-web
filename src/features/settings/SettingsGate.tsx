@@ -1,5 +1,6 @@
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { Alert, Button, Stack, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
+import { FullPageLoader } from '../../layout/FullPageLoader';
 import { usePublicSettingsQuery } from './settingsApi';
 
 /**
@@ -29,20 +30,5 @@ export function SettingsGate({ children }: { children: ReactNode }) {
     );
   }
 
-  return (
-    <Box
-      role="status"
-      aria-live="polite"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        minHeight: '100vh',
-      }}
-    >
-      <CircularProgress size={24} aria-hidden />
-      <Typography>Loading settings…</Typography>
-    </Box>
-  );
+  return <FullPageLoader label="Loading settings…" />;
 }

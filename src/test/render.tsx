@@ -8,6 +8,8 @@ type Router = ReturnType<typeof createMemoryRouter>;
 
 /** Renders the whole app at `url`. `routers` lists every router AppRouter created (normally one). */
 export function renderApp(url = '/') {
+  // The app reads the address bar too (e.g. the Google callback), so the browser URL follows the test URL.
+  window.history.replaceState(null, '', url);
   const store = createStore();
   const routers: Router[] = [];
   const createRouter = (routes: RouteObject[]) => {

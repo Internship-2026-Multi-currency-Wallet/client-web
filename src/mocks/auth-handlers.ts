@@ -11,6 +11,7 @@ import type {
 } from '../gql/wallet-core/graphql';
 import { EMAIL_PATTERN, normalizeEmail, PHONE_PATTERN } from '../features/auth/validation';
 import { AUTH_ERROR_CODES } from '../features/auth/authErrors';
+import type { ClientSettings } from '../features/settings/clientSettings';
 
 /**
  * Mock of the wallet-core auth contract. The HttpOnly refresh cookie is imitated by a plain `mock_refresh` cookie;
@@ -25,7 +26,7 @@ const LOCK_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
 const REFRESH_COOKIE = 'mock_refresh';
 
-interface MockUser {
+export interface MockUser {
   id: string;
   email: string;
   phone: string | null;
@@ -57,10 +58,28 @@ function persistUsers(): void {
   sessionStorage.setItem(USERS_KEY, JSON.stringify([...users.values()]));
 }
 
+type PhoneRequiredAt = ClientSettings['auth.phoneRequiredAt'];
+
+const PHONE_REQUIRED_AT_KEY = 'mock.auth.phoneRequiredAt';
+
+/** Mock value of the `auth.phoneRequiredAt` setting, shared by `PublicSettings` and `Register`. */
+export function mockPhoneRequiredAt(): PhoneRequiredAt {
+  return (sessionStorage.getItem(PHONE_REQUIRED_AT_KEY) as PhoneRequiredAt | null) ?? 'never';
+}
+
+export function setMockPhoneRequiredAt(value: PhoneRequiredAt): void {
+  sessionStorage.setItem(PHONE_REQUIRED_AT_KEY, value);
+}
+
 export function resetMockAuth(): void {
   sessionStorage.removeItem(USERS_KEY);
+  sessionStorage.removeItem(PHONE_REQUIRED_AT_KEY);
   users = loadUsers();
   clearMockRefreshCookie();
+}
+
+export function mockUserById(id: string): MockUser | undefined {
+  return [...users.values()].find((user) => user.id === id);
 }
 
 type PublicUser = { id: string; email: string; phone: string | null };
@@ -91,7 +110,7 @@ function refreshCookieUserId(): string | null {
   return match ? match[1] : null;
 }
 
-function graphqlError(
+export function graphqlError(
   code: string,
   message: string,
   extensions: Record<string, string> = {},
@@ -101,7 +120,7 @@ function graphqlError(
   });
 }
 
-function authPayload(user: MockUser) {
+export function authPayload(user: MockUser) {
   const expiresAt = Date.now() + ACCESS_TTL_MS;
   return {
     accessToken: mockAccessToken(user.id, expiresAt),
@@ -109,6 +128,10 @@ function authPayload(user: MockUser) {
     user: publicUser(user),
   };
 }
+
+/** Like wallet-core: `null`, `""` and whitespace mean no phone. */
+const phoneOf = (input: RegisterMutationVariables['input']): string | null =>
+  input.phone == null || input.phone.trim() === '' ? null : input.phone;
 
 /** The first invalid field, in the order and with the messages of wallet-core's `registerInputSchema`. */
 function registerInputProblem(input: RegisterMutationVariables['input']) {
@@ -132,9 +155,40 @@ function registerInputProblem(input: RegisterMutationVariables['input']) {
   if (!/[^\p{L}\p{N}]/u.test(p)) {
     return { field: 'password', message: 'Password must contain at least one special character' };
   }
-  if (input.phone != null && !PHONE_PATTERN.test(input.phone)) {
+  const phone = phoneOf(input);
+  if (phone !== null && !PHONE_PATTERN.test(phone)) {
     return { field: 'phone', message: 'Phone must be in international format, e.g. +380501234567' };
   }
+  return null;
+}
+
+/** Login and Google linking share failure counters so reauthentication cannot bypass account lockout. */
+export function checkMockPassword(user: MockUser, password: string) {
+  const lockedError = () =>
+    graphqlError(
+      AUTH_ERROR_CODES.ACCOUNT_LOCKED,
+      `Account is locked until ${new Date(user.lockedUntil!).toISOString()}`,
+      {
+        lockedUntil: new Date(user.lockedUntil!).toISOString(),
+      },
+    );
+  if (user.lockedUntil !== null && user.lockedUntil > Date.now()) return lockedError();
+
+  if (user.password !== password) {
+    user.failedLogins += 1;
+    if (user.failedLogins >= MAX_FAILED_LOGINS) {
+      user.failedLogins = 0;
+      user.lockedUntil = Date.now() + LOCK_MS;
+      persistUsers();
+      // Same as the backend: the 5th failed attempt is the one that already answers ACCOUNT_LOCKED.
+      return lockedError();
+    }
+    persistUsers();
+    return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
+  }
+  user.failedLogins = 0;
+  user.lockedUntil = null;
+  persistUsers();
   return null;
 }
 
@@ -146,6 +200,10 @@ export const authHandlers = [
       return graphqlError(AUTH_ERROR_CODES.BAD_USER_INPUT, problem.message, {
         field: problem.field,
       });
+    const phone = phoneOf(input);
+    if (phone === null && mockPhoneRequiredAt() === 'signup') {
+      return graphqlError(AUTH_ERROR_CODES.PHONE_REQUIRED, 'Phone is required', { field: 'phone' });
+    }
 
     const email = normalizeEmail(input.email);
     if (users.has(email)) {
@@ -154,7 +212,7 @@ export const authHandlers = [
     const user: MockUser = {
       id: String(Math.max(0, ...[...users.values()].map((u) => Number(u.id))) + 1),
       email,
-      phone: input.phone ?? null,
+      phone,
       password: input.password,
       failedLogins: 0,
       lockedUntil: null,
@@ -171,32 +229,8 @@ export const authHandlers = [
     // Unknown email and wrong password look the same on purpose.
     if (!user)
       return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
-
-    const lockedError = () =>
-      graphqlError(
-        AUTH_ERROR_CODES.ACCOUNT_LOCKED,
-        `Account is locked until ${new Date(user.lockedUntil!).toISOString()}`,
-        {
-          lockedUntil: new Date(user.lockedUntil!).toISOString(),
-        },
-      );
-    if (user.lockedUntil !== null && user.lockedUntil > Date.now()) return lockedError();
-
-    if (user.password !== password) {
-      user.failedLogins += 1;
-      if (user.failedLogins >= MAX_FAILED_LOGINS) {
-        user.failedLogins = 0;
-        user.lockedUntil = Date.now() + LOCK_MS;
-        persistUsers();
-        // Same as the backend: the 5th failed attempt is the one that already answers ACCOUNT_LOCKED.
-        return lockedError();
-      }
-      persistUsers();
-      return graphqlError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
-    }
-    user.failedLogins = 0;
-    user.lockedUntil = null;
-    persistUsers();
+    const failure = checkMockPassword(user, password);
+    if (failure) return failure;
     setMockRefreshCookie(user.id);
     return HttpResponse.json({ data: { login: authPayload(user) } });
   }),

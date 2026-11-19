@@ -1,5 +1,10 @@
-import { describeLoginError, describeRegisterError, formatUnlockTime } from './authErrors';
-import { PASSWORD_HINT, PHONE_HINT } from './validation';
+import {
+  describeGoogleLinkError,
+  describeLoginError,
+  describeRegisterError,
+  formatUnlockTime,
+} from './authErrors';
+import { PASSWORD_HINT, PHONE_HINT, PHONE_REQUIRED } from './validation';
 
 describe('describeLoginError', () => {
   it('keeps INVALID_CREDENTIALS generic', () => {
@@ -36,6 +41,24 @@ describe('describeLoginError', () => {
   });
 });
 
+describe('describeGoogleLinkError', () => {
+  it('says the re-entered password is wrong', () => {
+    expect(describeGoogleLinkError({ code: 'INVALID_CREDENTIALS', message: 'dev text' })).toBe(
+      'Wrong password. Please try again.',
+    );
+  });
+
+  it('explains a lock the same way as login does', () => {
+    const error = {
+      code: 'ACCOUNT_LOCKED',
+      message: 'dev text',
+      extensions: { lockedUntil: '2026-11-04T10:15:00.000Z' },
+    };
+    expect(describeGoogleLinkError(error)).toBe(describeLoginError(error));
+    expect(describeGoogleLinkError(error)).toMatch(/^Too many failed attempts/);
+  });
+});
+
 describe('describeRegisterError', () => {
   it('maps EMAIL_ALREADY_REGISTERED to the email field', () => {
     expect(describeRegisterError({ code: 'EMAIL_ALREADY_REGISTERED', message: 'x' })).toEqual({
@@ -55,6 +78,12 @@ describe('describeRegisterError', () => {
     ).toEqual({
       fieldErrors: { email: 'Enter a valid email address' },
     });
+  });
+
+  it('maps PHONE_REQUIRED to the phone field', () => {
+    expect(
+      describeRegisterError({ code: 'PHONE_REQUIRED', field: 'phone', message: 'dev' }),
+    ).toEqual({ fieldErrors: { phone: PHONE_REQUIRED } });
   });
 
   it('falls back to a form error for an unknown field or code', () => {

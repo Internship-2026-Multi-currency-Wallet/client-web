@@ -1,0 +1,315 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { delay, HttpResponse } from 'msw';
+import { DEMO_USER } from '../mocks/auth-handlers';
+import { seedMockGoogleLink } from '../mocks/google-handlers';
+import { server } from '../mocks/server';
+import { OTHER_USER, otherTab, signInForTest, testSession } from '../test/auth';
+import { googleLoginOff, stubGooglePopup } from '../test/google';
+import { errorResponse, walletCore } from '../test/graphql-handlers';
+import { renderApp } from '../test/render';
+
+const linkButton = () => screen.getByRole('button', { name: /link google account|waiting/i });
+
+/** Link → the password dialog → Continue. The signed-in test user is the mocks' demo user. */
+async function startLink(password: string = DEMO_USER.password) {
+  await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+  const dialog = within(await screen.findByRole('dialog', { name: 'Link Google account' }));
+  await userEvent.type(dialog.getByLabelText(/^password/i), password);
+  await userEvent.click(dialog.getByRole('button', { name: 'Continue' }));
+  // The closing dialog hides the rest of the page until it is gone.
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+}
+
+async function openAccount() {
+  signInForTest();
+  const app = renderApp('/account');
+  await screen.findByRole('heading', { name: 'Account settings' });
+  return app;
+}
+
+describe('AccountPage', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('is for signed-in users only', async () => {
+    const { router } = renderApp('/account');
+    await screen.findByRole('heading', { name: 'Log in' });
+    expect(router.state.location.pathname).toBe('/login');
+  });
+
+  it('is linked from the header', async () => {
+    signInForTest();
+    renderApp('/');
+    const header = within(await screen.findByRole('banner'));
+    await userEvent.click(header.getByRole('link', { name: 'Account' }));
+    expect(await screen.findByRole('heading', { name: 'Account settings' })).toBeInTheDocument();
+  });
+
+  it('links a Google account', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+
+    await startLink();
+    expect(linkButton()).toHaveTextContent('Waiting for Google…');
+    await google.approve('Demo.Google@example.com');
+
+    expect(await screen.findByText('demo.google@example.com')).toBeInTheDocument();
+    expect(screen.getByText(/^Linked to/)).toHaveTextContent(/since/);
+    expect(screen.getByRole('button', { name: 'Unlink' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('asks for the password before Google, and Cancel leaves the page as it was', async () => {
+    const google = stubGooglePopup();
+    let starts = 0;
+    server.use(
+      walletCore.mutation('StartGoogleLink', () => {
+        starts += 1;
+        return undefined;
+      }),
+    );
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Link Google account' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Link Google account' }));
+    expect(dialog.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(google.open).not.toHaveBeenCalled();
+
+    await userEvent.type(dialog.getByLabelText(/^password/i), 'typed');
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(google.open).not.toHaveBeenCalled();
+    expect(starts).toBe(0);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(linkButton()).toHaveTextContent('Link Google account');
+
+    // The typed password is not kept.
+    await userEvent.click(linkButton());
+    expect(await screen.findByLabelText(/^password/i)).toHaveValue('');
+  });
+
+  it('explains a wrong password and never goes on to Google', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink('Wrong1234!');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong password. Please try again.');
+    expect(google.popup.closed).toBe(true);
+    expect(google.popup.location.href).toBe('about:blank');
+    expect(linkButton()).toBeEnabled();
+    expect(screen.getByText(/^Not linked/)).toBeInTheDocument();
+  });
+
+  it('explains an account locked by wrong passwords, with the unlock time', async () => {
+    stubGooglePopup();
+    await openAccount();
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await startLink('Wrong1234!');
+      await screen.findByRole('alert');
+      await waitFor(() => expect(linkButton()).toBeEnabled());
+    }
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Too many failed attempts\. Your account is locked until .+\.$/,
+    );
+  });
+
+  it('explains a Google account that is already linked to another user', async () => {
+    seedMockGoogleLink('2', 'taken@example.com');
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.approve('taken@example.com');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This Google account is already linked to another user.',
+    );
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+  });
+
+  it('shows the link made elsewhere when another Google account is already linked', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await screen.findByText(/^Not linked/);
+    seedMockGoogleLink('1', 'first@example.com'); // e.g. in another tab
+
+    await startLink();
+    await google.approve('second@example.com');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /another google account is already linked/i,
+    );
+    expect(await screen.findByText('first@example.com')).toBeInTheDocument();
+  });
+
+  it('lets the user cancel the wait, and says so', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.authorizeUrl();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
+    expect(linkButton()).toBeEnabled();
+  });
+
+  it('shows the account as linked when the user cancels after the link was already sent', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let sent = false;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', async () => {
+        sent = true;
+        await gate;
+        return HttpResponse.json({
+          data: {
+            linkGoogleAccount: {
+              email: 'late@example.com',
+              linkedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.approve('late@example.com');
+    await waitFor(() => expect(sent).toBe(true));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    release();
+
+    expect(await screen.findByText('late@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link Google account' })).not.toBeInTheDocument();
+  });
+
+  it('tells a user who closed the Google window how to go on', async () => {
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.closeByUser();
+
+    expect(await screen.findByText(/closed the google window/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in was cancelled.');
+    expect(linkButton()).toBeEnabled();
+  });
+
+  it('cancels the link when the user leaves the page', async () => {
+    let links = 0;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', () => {
+        links += 1;
+        return errorResponse('INVALID_GOOGLE_STATE');
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.authorizeUrl();
+    await userEvent.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Home' }));
+
+    await screen.findByRole('heading', { name: 'Welcome' });
+    expect(google.popup.closed).toBe(true);
+    await google.approve('demo.google@example.com');
+    await delay(100);
+    expect(links).toBe(0);
+  });
+
+  it('never shows a link that finished after the user changed to the next user', async () => {
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    let linkCalled = false;
+    server.use(
+      walletCore.mutation('LinkGoogleAccount', async () => {
+        linkCalled = true;
+        await answered;
+        return HttpResponse.json({
+          data: {
+            linkGoogleAccount: {
+              email: 'demo.google@example.com',
+              linkedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }),
+    );
+    const google = stubGooglePopup();
+    await openAccount();
+    await startLink();
+    await google.approve('demo.google@example.com');
+    await waitFor(() => expect(linkCalled).toBe(true));
+
+    // Another tab switches to the next user while the link request is still running.
+    otherTab.write(testSession(OTHER_USER));
+    otherTab.notify();
+    await screen.findByText(OTHER_USER.email);
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+    answer();
+    await delay(100);
+
+    expect(screen.queryByText('demo.google@example.com')).not.toBeInTheDocument();
+    expect(screen.getByText(/^Not linked/)).toBeInTheDocument();
+  });
+
+  it('unlinks only after confirmation', async () => {
+    seedMockGoogleLink('1', 'demo.google@example.com');
+    await openAccount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Unlink' }));
+
+    const dialog = within(screen.getByRole('dialog', { name: 'Unlink Google account?' }));
+    expect(dialog.getByText(/logged out on your other devices/)).toBeInTheDocument();
+    await userEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('demo.google@example.com')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Unlink' }),
+    );
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+    // The page is aria-hidden until the dialog has finished closing.
+    expect(await screen.findByRole('button', { name: 'Link Google account' })).toBeInTheDocument();
+  });
+
+  it('shows a failed load with a retry', async () => {
+    let calls = 0;
+    server.use(
+      walletCore.query('GoogleAccount', () => {
+        calls += 1;
+        return calls === 1
+          ? errorResponse('INTERNAL_SERVER_ERROR')
+          : HttpResponse.json({ data: { googleAccount: null } });
+      }),
+    );
+    await openAccount();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load/i);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows the Google section while Google login is on', async () => {
+    await openAccount();
+    expect(await screen.findByRole('heading', { name: 'Google sign-in' })).toBeInTheDocument();
+  });
+
+  it('has no Google section and does not ask for the link while Google login is off', async () => {
+    seedMockGoogleLink('1', 'linked@example.com');
+    let asked = false;
+    server.use(
+      walletCore.query('GoogleAccount', () => {
+        asked = true;
+        return HttpResponse.json({ data: { googleAccount: null } });
+      }),
+    );
+    googleLoginOff();
+    await openAccount();
+
+    expect(screen.queryByRole('heading', { name: 'Google sign-in' })).not.toBeInTheDocument();
+    expect(screen.queryByText('linked@example.com')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /google|unlink/i })).not.toBeInTheDocument();
+    expect(asked).toBe(false);
+  });
+});

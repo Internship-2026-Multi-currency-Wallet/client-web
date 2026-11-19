@@ -27,3 +27,40 @@ test('unknown URLs show the 404 page', async ({ page }) => {
   await page.getByRole('link', { name: 'Go home' }).click();
   await expect(page).toHaveURL('/');
 });
+
+test('every page opens directly and from the menu, with no console warnings', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'warning' || message.type() === 'error') problems.push(message.text());
+  });
+
+  await page.goto('/signup');
+  await expect(page.getByRole('heading', { name: 'Create account' })).toBeVisible();
+  await logIn(page);
+  for (const [url, heading] of [
+    ['/', 'Welcome'],
+    ['/wallet', 'Wallet'],
+    ['/nope', 'Page not found'],
+  ]) {
+    await page.goto(url);
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Wallet' })).toBeVisible();
+  await page.getByRole('link', { name: 'Home' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
+
+  expect(problems).toEqual([]);
+});
+
+test('the login page does not download the other pages', async ({ page }) => {
+  const pages: string[] = [];
+  page.on('request', (request) => {
+    const match = /\/src\/pages\/(\w+)\.tsx/.exec(request.url());
+    if (match) pages.push(match[1]);
+  });
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
+  expect(pages).toEqual(['LoginPage']);
+});

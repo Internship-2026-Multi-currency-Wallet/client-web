@@ -28,7 +28,7 @@ async function otherTabHoldsRefreshLock() {
   let releaseLock!: () => void;
   let held!: Promise<void>;
   await new Promise<void>((acquired) => {
-    held = navigator.locks.request('wallet.refresh', () => {
+    held = navigator.locks.request('wallet.session', () => {
       acquired();
       return new Promise<void>((r) => (releaseLock = r));
     });
@@ -49,7 +49,7 @@ async function otherTabHoldsRefreshLock() {
     name: string,
     callback: () => Promise<unknown>,
   ) => {
-    if (name === 'wallet.refresh') queued();
+    if (name === 'wallet.session') queued();
     return original(name, callback);
   }) as typeof locks.request);
   // Also when an assertion fails before `release()`: a lock left held would hang every later refresh.

@@ -27,10 +27,13 @@ const backend = z.object({
     .regex(/\d/, 'password')
     .regex(/\p{Lu}/u, 'password')
     .regex(/[^\p{L}\p{N}]/u, 'password'),
-  phone: z
-    .string()
-    .regex(/^\+[1-9]\d{6,14}$/, 'phone')
-    .nullish(),
+  phone: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z
+      .string()
+      .regex(/^\+[1-9]\d{6,14}$/, 'phone')
+      .nullish(),
+  ),
 });
 
 const VALID = { email: 'artem@test.com', password: 'Qwerty1!' };
@@ -152,11 +155,11 @@ describe('Register rules: client form and mock agree with wallet-core', () => {
         phone: input.phone ?? '',
       });
       const expected = backendField(input);
-      // The form trims the phone and treats a blank one as "no phone" (the request then omits it). That is the
-      // only intended difference from the backend, which rejects "" and " +380…" when they are sent as they are.
-      const phoneIsBlankOrPadded =
-        c.phone === '' || (typeof c.phone === 'string' && c.phone.trim() !== c.phone);
-      if (phoneIsBlankOrPadded) {
+      // The form trims the phone before sending it. That is the only intended difference from the backend,
+      // which rejects " +380…" when it is sent as it is.
+      const phoneIsPadded =
+        typeof c.phone === 'string' && c.phone.trim() !== '' && c.phone.trim() !== c.phone;
+      if (phoneIsPadded) {
         expect(errors.phone).toBeUndefined();
         return;
       }
