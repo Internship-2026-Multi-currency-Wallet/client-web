@@ -15,7 +15,7 @@ English translations supply warnings and suggestions.
 - https://zxcvbn-ts.github.io/zxcvbn/guide/getting-started/
 - https://zxcvbn-ts.github.io/zxcvbn/guide/lazy-loading/
 
-`passwordStrength.ts` caches a single dynamic import. Only when submitted,
+`passwordEstimator.ts` caches a single dynamic import. Only when submitted,
 nonempty feedback is needed does it load `passwordStrengthEstimator.ts`, the
 engine, and both dictionaries from the application build. No remote API/CDN,
 password/hash transmission, logging, or persistent storage is added. The loader

@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { PasswordStrength } from './PasswordStrength';
-import { loadPasswordEstimator, type PasswordEstimate } from './passwordStrength';
+import { loadPasswordEstimator, type PasswordEstimate } from './passwordEstimator';
 
-vi.mock('./passwordStrength', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./passwordStrength')>()),
+vi.mock('./passwordEstimator', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./passwordEstimator')>()),
   loadPasswordEstimator: vi.fn(),
 }));
 

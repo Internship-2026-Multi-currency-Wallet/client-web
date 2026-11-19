@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SignUpForm } from './SignUpForm';
-import { loadPasswordEstimator } from './passwordStrength';
+import { loadPasswordEstimator } from './passwordEstimator';
 import { newPasswordSchema } from './validation';
 
-vi.mock('./passwordStrength', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./passwordStrength')>()),
+vi.mock('./passwordEstimator', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./passwordEstimator')>()),
   loadPasswordEstimator: vi.fn(),
 }));
 

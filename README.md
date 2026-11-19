@@ -53,7 +53,7 @@ built one at a time; give Docker at least 4 GiB if you run the whole stack. Deta
 | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `npm run dev` / `npm run dev:mocks` | Dev server on :5173 (real backends / mocks)                                                       |
 | `npm run build` / `npm run preview` | Type check + production build to `dist/` / serve it                                               |
-| `npm run lint` / `npm run format`   | ESLint / Prettier                                                                                 |
+| `npm run lint` / `npm run format`   | ESLint + a check for files or folders that differ only in letter case / Prettier                  |
 | `npm run typecheck`                 | `tsc -b`                                                                                          |
 | `npm test`                          | Unit and component tests (Vitest + RTL, against MSW)                                              |
 | `npm run test:e2e`                  | Playwright smoke tests against the app with mocks (first time: `npx playwright install chromium`) |

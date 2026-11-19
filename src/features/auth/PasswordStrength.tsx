@@ -4,7 +4,7 @@ import {
   canEstimatePassword,
   loadPasswordEstimator,
   type PasswordEstimate,
-} from './passwordStrength';
+} from './passwordEstimator';
 import { PASSWORD_MAX_LENGTH } from './validation';
 
 const LEVELS = [

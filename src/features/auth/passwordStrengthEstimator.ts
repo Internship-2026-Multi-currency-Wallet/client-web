@@ -1,7 +1,7 @@
 import { ZxcvbnFactory } from '@zxcvbn-ts/core';
 import { adjacencyGraphs, dictionary as commonDictionary } from '@zxcvbn-ts/language-common';
 import { dictionary as englishDictionary, translations } from '@zxcvbn-ts/language-en';
-import { canEstimatePassword, type PasswordEstimate } from './passwordStrength';
+import { canEstimatePassword, type PasswordEstimate } from './passwordEstimator';
 import { PASSWORD_MAX_LENGTH } from './validation';
 
 const estimator = new ZxcvbnFactory({

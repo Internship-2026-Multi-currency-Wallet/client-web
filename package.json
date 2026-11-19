@@ -12,7 +12,7 @@
     "dev:mocks": "vite --mode mocks",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-file-casing.mjs",
     "lint:types": "eslint -c eslint.types.config.js .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
