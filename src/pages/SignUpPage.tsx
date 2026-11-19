@@ -7,10 +7,12 @@ import { useRegisterMutation } from '../features/auth/authApi';
 import { describeRegisterError } from '../features/auth/authErrors';
 import { selectUser } from '../features/auth/authSlice';
 import { SignUpForm } from '../features/auth/SignUpForm';
+import { useClientSetting } from '../features/settings/useClientSetting';
 
 export function SignUpPage() {
   usePageTitle('Sign up');
   const [register, { isLoading, error, reset }] = useRegisterMutation();
+  const phoneRequiredAt = useClientSetting('auth.phoneRequiredAt');
   const user = useAppSelector(selectUser);
   const navigate = useNavigate();
   const from = (useLocation().state as { from?: string } | null)?.from;
@@ -45,17 +47,29 @@ export function SignUpPage() {
               void navigate('/login', { replace: true, state: { registered: true, from } });
             }}
             isSubmitting={isLoading}
+            phoneRequired={phoneRequiredAt === 'signup'}
             serverError={formError}
             onEdit={reset}
           />
         </CardContent>
       </Card>
-      <Typography variant="body2" color="text.secondary">
-        Already have an account?{' '}
-        <Link component={RouterLink} to="/login" state={{ from }}>
-          Log in
+      <Stack spacing={0.5}>
+        <Typography variant="body2" color="text.secondary">
+          Already have an account?{' '}
+          <Link component={RouterLink} to="/login" state={{ from }}>
+            Log in
+          </Link>
+        </Typography>
+        <Link
+          href="/third-party-notices.txt"
+          target="_blank"
+          rel="noreferrer"
+          variant="caption"
+          sx={{ color: 'text.secondary', alignSelf: 'flex-start' }}
+        >
+          Third-party notices
         </Link>
-      </Typography>
+      </Stack>
     </Stack>
   );
 }

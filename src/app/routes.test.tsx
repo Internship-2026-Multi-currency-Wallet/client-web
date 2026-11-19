@@ -13,6 +13,10 @@ function routeNames(enabledProducts: string[]): (string | undefined)[] {
   return names(layout.children ?? []);
 }
 
+/** Routes without children: the pages. */
+const pages = (routes: RouteObject[]): RouteObject[] =>
+  routes.flatMap((route) => (route.children ? pages(route.children) : [route]));
+
 /** Routes that need a login (the group rendered by `RequireAuth`). */
 function protectedRouteNames(enabledProducts: string[]): (string | undefined)[] {
   const [layout] = buildAppRoutes(enabledProducts).routes;
@@ -21,7 +25,7 @@ function protectedRouteNames(enabledProducts: string[]): (string | undefined)[] 
 
 describe('buildAppRoutes', () => {
   it('adds the route and the menu item of an enabled product', () => {
-    expect(routeNames(['wallet'])).toEqual(['index', '/wallet', 'login', 'signup', '*']);
+    expect(routeNames(['wallet'])).toEqual(['index', 'account', '/wallet', 'login', 'signup', '*']);
     expect(buildAppRoutes(['wallet']).menuItems).toEqual([
       { path: '/', label: 'Home' },
       { path: '/wallet', label: 'Wallet' },
@@ -29,7 +33,7 @@ describe('buildAppRoutes', () => {
   });
 
   it('has no route and no menu item for a product that is not enabled', () => {
-    expect(routeNames([])).toEqual(['index', 'login', 'signup', '*']);
+    expect(routeNames([])).toEqual(['index', 'account', 'login', 'signup', '*']);
     expect(buildAppRoutes([]).menuItems).toEqual([{ path: '/', label: 'Home' }]);
   });
 
@@ -40,7 +44,30 @@ describe('buildAppRoutes', () => {
     );
   });
 
-  it('puts home and every product behind the login; login, sign-up and not-found stay public', () => {
-    expect(protectedRouteNames(['wallet'])).toEqual(['index', '/wallet']);
+  it('puts home, account and every product behind the login; login, sign-up and not-found stay public', () => {
+    expect(protectedRouteNames(['wallet'])).toEqual(['index', 'account', '/wallet']);
+  });
+
+  it('serves the Google callback outside the layout and without a login', () => {
+    const [, ...outside] = buildAppRoutes(['wallet']).routes;
+    expect(names(outside)).toEqual(['auth/google/callback']);
+  });
+
+  it('loads every page lazily, so each page is its own chunk', () => {
+    for (const page of pages(buildAppRoutes(['wallet']).routes)) {
+      expect(page.element).toBeUndefined();
+      expect(page.lazy).toEqual(expect.any(Function));
+    }
+  });
+
+  it('loads the page component of a product', async () => {
+    const wallet = pages(buildAppRoutes(['wallet']).routes).find((r) => r.path === '/wallet');
+    const { WalletPage } = await import('../pages/WalletPage');
+    expect(await (wallet?.lazy as () => Promise<unknown>)()).toEqual({ Component: WalletPage });
+  });
+
+  it('shows a loader while the first page loads', () => {
+    const [layout] = buildAppRoutes([]).routes;
+    expect(layout.hydrateFallbackElement).toBeTruthy();
   });
 });

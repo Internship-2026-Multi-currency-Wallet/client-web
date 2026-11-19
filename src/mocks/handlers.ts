@@ -1,7 +1,8 @@
 import { HttpResponse } from 'msw';
 import { graphql } from 'msw/graphql';
 import { config } from '../config-env';
-import { authHandlers, userIdFromBearer } from './auth-handlers';
+import { authHandlers, mockPhoneRequiredAt, userIdFromBearer } from './auth-handlers';
+import { googleHandlers, mockGoogleLoginEnabled } from './google-handlers';
 import type {
   MeQuery,
   PublicSettingsQuery,
@@ -41,14 +42,15 @@ export const handlers = [
   ),
 
   ...authHandlers,
+  ...googleHandlers,
 
   // Values of the agreed settings catalog (not a live backend response).
   walletCore.query<PublicSettingsQuery>('PublicSettings', () =>
     HttpResponse.json({
       data: {
         publicSettings: [
-          { key: 'auth.googleLogin', value: true },
-          { key: 'auth.phoneRequiredAt', value: 'never' },
+          { key: 'auth.googleLogin', value: mockGoogleLoginEnabled() },
+          { key: 'auth.phoneRequiredAt', value: mockPhoneRequiredAt() },
           { key: 'products.enabled', value: ['wallet'] },
         ],
       },

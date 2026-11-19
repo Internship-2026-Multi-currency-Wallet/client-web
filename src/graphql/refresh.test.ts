@@ -60,7 +60,7 @@ describe('refreshSession', () => {
     // Another tab holds the lock while it refreshes.
     let release: (() => void) | undefined;
     const held = navigator.locks.request(
-      'wallet.refresh',
+      'wallet.session',
       () => new Promise<void>((r) => (release = r)),
     );
     await vi.waitFor(() => expect(release).toBeDefined());

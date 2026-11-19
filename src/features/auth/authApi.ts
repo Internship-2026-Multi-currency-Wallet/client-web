@@ -1,6 +1,7 @@
 import { api, graphqlQuery } from '../../app/api';
 import type { LoginInput, RegisterInput } from '../../gql/wallet-core/graphql';
 import { request, type RequestOptions } from '../../graphql/client';
+import { withSessionLock } from '../../graphql/refresh';
 import { saveSession, sessionFromPayload, type SessionUser } from '../../graphql/session';
 import { loginMutation, logoutMutation, registerMutation } from './auth.wallet-core';
 
@@ -24,12 +25,20 @@ export const authApi = api.injectEndpoints({
     }),
     login: build.mutation<SessionUser, LoginInput>({
       queryFn: (input) =>
-        graphqlQuery(async () => {
-          const { login } = await request('walletCore', loginMutation, { input }, NO_SESSION_RETRY);
-          const session = sessionFromPayload(login);
-          saveSession(session);
-          return session.user;
-        }),
+        graphqlQuery(() =>
+          // Held until the cookie and the stored session agree: see withSessionLock.
+          withSessionLock(async () => {
+            const { login } = await request(
+              'walletCore',
+              loginMutation,
+              { input },
+              NO_SESSION_RETRY,
+            );
+            const session = sessionFromPayload(login);
+            saveSession(session);
+            return session.user;
+          }),
+        ),
     }),
     /** Revokes the refresh session on the server and clears its cookie. */
     logout: build.mutation<boolean, void>({

@@ -5,6 +5,7 @@ import { type LoginValues, type LoginInput, loginSchema, toLoginInput } from './
 export interface LoginFormProps {
   onSubmit: (input: LoginInput) => void;
   isSubmitting?: boolean;
+  disabled?: boolean;
   /** Ready-to-show message; the owner decides its text (wrong password, locked until…). */
   serverError?: string | null;
   onEdit?: () => void;
@@ -12,7 +13,14 @@ export interface LoginFormProps {
 
 const EMPTY: LoginValues = { email: '', password: '' };
 
-export function LoginForm({ onSubmit, isSubmitting = false, serverError, onEdit }: LoginFormProps) {
+export function LoginForm({
+  onSubmit,
+  isSubmitting = false,
+  disabled = false,
+  serverError,
+  onEdit,
+}: LoginFormProps) {
+  const locked = isSubmitting || disabled;
   const {
     registerInput,
     handleSubmit,
@@ -31,7 +39,7 @@ export function LoginForm({ onSubmit, isSubmitting = false, serverError, onEdit 
       ref={formRef}
       onChange={onEdit}
       onSubmit={
-        isSubmitting
+        locked
           ? (event) => event.preventDefault()
           : handleSubmit((values) => onSubmit(toLoginInput(values)))
       }
@@ -47,7 +55,7 @@ export function LoginForm({ onSubmit, isSubmitting = false, serverError, onEdit 
           required
           error={Boolean(errors.email)}
           helperText={errors.email?.message}
-          disabled={isSubmitting}
+          disabled={locked}
         />
         <TextField
           label="Password"
@@ -57,9 +65,9 @@ export function LoginForm({ onSubmit, isSubmitting = false, serverError, onEdit 
           required
           error={Boolean(errors.password)}
           helperText={errors.password?.message}
-          disabled={isSubmitting}
+          disabled={locked}
         />
-        <Button type="submit" variant="contained" disabled={isSubmitting}>
+        <Button type="submit" variant="contained" disabled={locked}>
           {isSubmitting ? 'Logging in…' : 'Log in'}
         </Button>
       </Stack>

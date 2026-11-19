@@ -8,6 +8,10 @@ import { server } from '../mocks/server';
 import { signInForTest } from '../test/auth';
 import { renderApp } from '../test/render';
 
+// React Router warns only once per file (e.g. a missing HydrateFallback), so watch every test.
+const warn = vi.spyOn(console, 'warn');
+afterEach(() => expect(warn).not.toHaveBeenCalled());
+
 /** Public settings with the given `products.enabled`; the other settings keep their defaults. */
 function enableProducts(products: string[]) {
   server.use(
@@ -49,6 +53,15 @@ describe('AppRouter', () => {
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Wallet' })).not.toBeInTheDocument();
   });
+
+  it.each(['/', '/login', '/signup', '/wallet', '/no-such-page'])(
+    'opens %s directly',
+    async (url) => {
+      enableProducts(['wallet']);
+      renderApp(url);
+      expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+    },
+  );
 
   it('keeps the same router and the app mounted through logout and login', async () => {
     enableProducts(['wallet']);
