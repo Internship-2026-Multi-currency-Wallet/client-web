@@ -7,11 +7,19 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuf
   .split('\0')
   .filter(Boolean);
 
-const group = (keyOf) => {
+const dirs = files.flatMap((f) =>
+  f
+    .split('/')
+    .slice(0, -1)
+    .map((_, i, parts) => parts.slice(0, i + 1).join('/')),
+);
+const paths = [...new Set([...files, ...dirs])];
+
+const group = (items, keyOf) => {
   const groups = new Map();
-  for (const file of files) {
-    const key = keyOf(file);
-    groups.set(key, [...(groups.get(key) ?? []), file]);
+  for (const item of items) {
+    const key = keyOf(item);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
   }
   return [...groups.values()];
 };
@@ -19,14 +27,16 @@ const group = (keyOf) => {
 // Extensionless imports can collide on case-insensitive filesystems even when the files have different extensions.
 const clashes = new Set(
   [
-    ...group((f) => f.toLowerCase()).filter((paths) => paths.length > 1),
-    ...group((f) => stem(f).toLowerCase()).filter((paths) => new Set(paths.map(stem)).size > 1),
-  ].map((paths) => paths.join('  <->  ')),
+    ...group(paths, (p) => p.toLowerCase()).filter((same) => same.length > 1),
+    ...group(files, (f) => stem(f).toLowerCase()).filter(
+      (same) => new Set(same.map(stem)).size > 1,
+    ),
+  ].map((same) => same.join('  <->  ')),
 );
 
 if (clashes.size > 0) {
   console.error(
-    'Files that differ only in letter case (they are one file or one module on macOS and Windows):',
+    'Paths that differ only in letter case (they are one file, folder or module on macOS and Windows):',
   );
   for (const clash of clashes) console.error(`  ${clash}`);
   console.error('Rename one of them.');
