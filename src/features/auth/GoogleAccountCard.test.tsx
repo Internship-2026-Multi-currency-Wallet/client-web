@@ -6,6 +6,16 @@ import { server } from '../../mocks/server';
 import { signInForTest } from '../../test/auth';
 import { walletCore } from '../../test/graphql-handlers';
 import { GoogleAccountCard } from './GoogleAccountCard';
+import { isGoogleSignInConfigured } from './googlePopup';
+
+vi.mock('./googlePopup', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./googlePopup')>()),
+  isGoogleSignInConfigured: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(isGoogleSignInConfigured).mockReset().mockReturnValue(true);
+});
 
 describe('GoogleAccountCard', () => {
   it("never shows the previous user's link while the next user's one loads", async () => {
@@ -43,5 +53,23 @@ describe('GoogleAccountCard', () => {
 
     answer();
     expect(await screen.findByText(/^Not linked/)).toBeInTheDocument();
+  });
+
+  it('says Google sign-in is not available when Google login is on but no Google client id is set', async () => {
+    vi.mocked(isGoogleSignInConfigured).mockReturnValue(false);
+    server.use(
+      walletCore.query('GoogleAccount', () => HttpResponse.json({ data: { googleAccount: null } })),
+    );
+    signInForTest();
+    render(
+      <AppProviders store={createStore()}>
+        <GoogleAccountCard userId="1" />
+      </AppProviders>,
+    );
+
+    expect(
+      await screen.findByText('Not linked. Sign-in with Google is not available.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link Google account' })).not.toBeInTheDocument();
   });
 });

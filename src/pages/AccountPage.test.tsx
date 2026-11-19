@@ -290,10 +290,26 @@ describe('AccountPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('offers no Link while Google sign-in is off', async () => {
+  it('shows the Google section while Google login is on', async () => {
+    await openAccount();
+    expect(await screen.findByRole('heading', { name: 'Google sign-in' })).toBeInTheDocument();
+  });
+
+  it('has no Google section and does not ask for the link while Google login is off', async () => {
+    seedMockGoogleLink('1', 'linked@example.com');
+    let asked = false;
+    server.use(
+      walletCore.query('GoogleAccount', () => {
+        asked = true;
+        return HttpResponse.json({ data: { googleAccount: null } });
+      }),
+    );
     googleLoginOff();
     await openAccount();
-    expect(await screen.findByText(/not available/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Link Google account' })).not.toBeInTheDocument();
+
+    expect(screen.queryByRole('heading', { name: 'Google sign-in' })).not.toBeInTheDocument();
+    expect(screen.queryByText('linked@example.com')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /google|unlink/i })).not.toBeInTheDocument();
+    expect(asked).toBe(false);
   });
 });
